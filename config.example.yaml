@@ -1,0 +1,87 @@
+# Example configuration file
+# Copy this file to config.yaml and modify as needed
+
+install:
+  # Qt source code path (tqtc-qt5)
+  qt_source_path: "D:/code/tqtc-qt5"
+  
+  # HarmonyOS SDK path
+  # Example: C:/Users/<username>/Library/OpenHarmony/Sdk/12
+  harmony_sdk_path: "C:/Users/Administrator/Library/OpenHarmony/Sdk/12"
+  
+  # Qt installation path
+  # Where the compiled Qt will be installed
+  install_path: "C:/Qt/Qt5.15.16-HarmonyOS"
+  
+  # Target architecture
+  # Options: arm64-v8a (recommended), x86_64
+  architecture: "arm64-v8a"
+  
+  # Qt version
+  qt_version: "5.15.16"
+  
+  # Build type
+  # Options: release, debug, release-with-debug-info
+  build_type: "release"
+  
+  # Number of parallel build jobs
+  # Recommended: number of CPU cores
+  parallel_jobs: 8
+
+  # Tool paths (optional)
+  # If you have already installed make and perl, specify their paths here
+  # Leave as null to let the tool download/install automatically
+  make_path: null  # Example: "C:/Program Files/GnuWin32/bin/make.exe"
+  perl_path: null  # Example: "C:/Strawberry Perl/perl/bin/perl.exe"
+
+  # Modules to skip (reduce build time)
+  skip_modules:
+    - qt3d
+    - qtactiveqt
+    - qtandroidextras
+    - qtcanvas3d
+    - qtconnectivity
+    - qtdatavis3d
+    - qtdoc
+    - qtdocgallery
+    - qtfeedback
+    - qtgamepad
+    - qtgraphicaleffects
+    - qtlocation
+    - qtmacextras
+    - qtnetworkauth
+    - qtpim
+    - qtpurchasing
+    - qtqa
+    - qtremoteobjects
+    - qtrepotools
+    - qtscript
+    - qtscxml
+    - qtsensors
+    - qtserialbus
+    - qtserialport
+    - qtspeech
+    - qtsystems
+    - qttools
+    - qttranslations
+    - qtvirtualkeyboard
+    - qtwayland
+    - qtwebchannel
+    - qtwebengine
+    - qtwebglplugin
+    - qtwebsockets
+    - qtwebview
+    - qtwinextras
+    - qtx11extras
+    - doc
+
+tools:
+  # Make tool download URL (Windows)
+  make_url: "https://sourceforge.net/projects/mingw/files/MinGW/make/make-3.82.90/make-3.82.90-2-mingw32-bin.tar.lzma/download"
+  
+  # Perl download URL (Windows - Strawberry Perl)
+  perl_url: "https://strawberryperl.com/download/5.38.2.2/strawberry-perl-5.38.2.2-64bit.msi"
+  
+  # Tool versions
+  make_version: "3.82.90"
+  perl_version: "5.38.2.2"
