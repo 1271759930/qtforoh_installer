@@ -267,8 +267,10 @@ This tool will help you install Qt for HarmonyOS by:
         )
 
         if has_make:
-            self.console.print("\n[bold]Please specify make executable path[/bold]")
-            self.console.print("[yellow]Example: C:\\Program Files\\GnuWin32\\bin\\make.exe[/yellow]")
+            self.console.print("\n[bold]Please specify make path[/bold]")
+            self.console.print("[yellow]You can provide either make executable path or tool root directory[/yellow]")
+            self.console.print("[yellow]Example 1: D:\\Tools\\llvm-mingw-xxxx\\bin\\mingw32-make.exe[/yellow]")
+            self.console.print("[yellow]Example 2: D:\\Tools\\llvm-mingw-xxxx[/yellow]")
 
             while True:
                 response = Prompt.ask(
@@ -280,12 +282,12 @@ This tool will help you install Qt for HarmonyOS by:
                     break
 
                 path = Path(response.strip())
-                if path.exists() and path.is_file():
+                if path.exists():
                     make_path = path
                     self.console.print(f"[green]✓ Make path set: {make_path}[/green]")
                     break
                 else:
-                    self.console.print(f"[red]✗ File not found: {path}[/red]")
+                    self.console.print(f"[red]✗ Path not found: {path}[/red]")
                     retry = Confirm.ask("[bold]Try again?[/bold]", default=True)
                     if not retry:
                         break
@@ -297,8 +299,10 @@ This tool will help you install Qt for HarmonyOS by:
         )
 
         if has_perl:
-            self.console.print("\n[bold]Please specify perl executable path[/bold]")
-            self.console.print("[yellow]Example: C:\\Strawberry Perl\\perl\\bin\\perl.exe[/yellow]")
+            self.console.print("\n[bold]Please specify perl path[/bold]")
+            self.console.print("[yellow]You can provide either perl executable path or perl bin directory[/yellow]")
+            self.console.print("[yellow]Example 1: C:\\Strawberry\\perl\\bin\\perl.exe[/yellow]")
+            self.console.print("[yellow]Example 2: C:\\Strawberry\\perl\\bin[/yellow]")
 
             while True:
                 response = Prompt.ask(
@@ -310,12 +314,12 @@ This tool will help you install Qt for HarmonyOS by:
                     break
 
                 path = Path(response.strip())
-                if path.exists() and path.is_file():
+                if path.exists():
                     perl_path = path
                     self.console.print(f"[green]✓ Perl path set: {perl_path}[/green]")
                     break
                 else:
-                    self.console.print(f"[red]✗ File not found: {path}[/red]")
+                    self.console.print(f"[red]✗ Path not found: {path}[/red]")
                     retry = Confirm.ask("[bold]Try again?[/bold]", default=True)
                     if not retry:
                         break

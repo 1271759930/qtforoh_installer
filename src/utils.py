@@ -7,6 +7,7 @@ import sys
 import platform
 import subprocess
 import shutil
+import locale
 from pathlib import Path
 from typing import Optional, List, Tuple
 import logging
@@ -105,11 +106,11 @@ def run_command(
                 cwd=cwd,
                 env=env,
                 capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace"
+                text=False
             )
-            return result.returncode, result.stdout, result.stderr
+            stdout_text = _decode_process_output(result.stdout)
+            stderr_text = _decode_process_output(result.stderr)
+            return result.returncode, stdout_text, stderr_text
         else:
             process = subprocess.Popen(
                 cmd,
@@ -117,15 +118,13 @@ def run_command(
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=False
             )
             
             stdout_lines = []
-            for line in process.stdout:
+            for raw_line in iter(process.stdout.readline, b""):
+                line = _decode_process_output(raw_line)
                 stdout_lines.append(line)
                 if logger:
                     logger.info(line.rstrip())
@@ -144,6 +143,42 @@ def run_command(
         if logger:
             logger.error(error_msg)
         return -1, "", error_msg
+
+
+def _decode_process_output(data: bytes) -> str:
+    """Decode subprocess output with Windows-friendly fallbacks."""
+    if data is None:
+        return ""
+
+    if isinstance(data, str):
+        return data
+
+    encodings = ["utf-8"]
+    if is_windows():
+        preferred = locale.getpreferredencoding(False)
+        if preferred:
+            encodings.append(preferred)
+        encodings.extend(["gbk", "cp936"])
+    else:
+        preferred = locale.getpreferredencoding(False)
+        if preferred:
+            encodings.append(preferred)
+
+    seen = set()
+    ordered_encodings = []
+    for enc in encodings:
+        key = enc.lower()
+        if key not in seen:
+            seen.add(key)
+            ordered_encodings.append(enc)
+
+    for enc in ordered_encodings:
+        try:
+            return data.decode(enc)
+        except UnicodeDecodeError:
+            continue
+
+    return data.decode("utf-8", errors="replace")
 
 
 def validate_path(path: Path, must_exist: bool = True, create: bool = False) -> Tuple[bool, str]:
