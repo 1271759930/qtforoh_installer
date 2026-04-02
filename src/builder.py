@@ -235,6 +235,7 @@ class QtBuilder:
         self.logger.info(f"Starting Qt build with {self.config.parallel_jobs} parallel jobs")
         
         env = self.env_manager.get_build_environment()
+        self._print_make_tool_path(env)
         
         # Make command
         cmd = [self.make_cmd, f"-j{self.config.parallel_jobs}"]
@@ -268,6 +269,7 @@ class QtBuilder:
         self.logger.info("Starting Qt installation")
         
         env = self.env_manager.get_build_environment()
+        self._print_make_tool_path(env)
         
         # Make install command
         cmd = [self.make_cmd, "install"]
@@ -292,6 +294,21 @@ class QtBuilder:
             self.logger.error(f"Qt installation failed with code: {exit_code}")
         
         return exit_code, stdout, stderr
+
+    def _print_make_tool_path(self, env: dict) -> None:
+        """Print currently resolved make tool path before running make commands."""
+        self.console.print("\n[bold cyan]Resolving make tool...[/bold cyan]")
+        configured_make = str(self.config.make_path) if self.config.make_path else "(not configured)"
+        resolved_make = shutil.which(self.make_cmd, path=env.get("PATH"))
+        self.console.print(f"  [cyan]Configured make_path[/cyan]: {configured_make}")
+        self.console.print(f"  [cyan]make command[/cyan]: {self.make_cmd}")
+        self.console.print(f"  [cyan]Resolved path[/cyan]: {resolved_make or '(not found in PATH)'}")
+        self.logger.info(
+            "Make tool resolution - configured: %s, command: %s, resolved: %s",
+            configured_make,
+            self.make_cmd,
+            resolved_make or "(not found in PATH)",
+        )
     
     def _verify_installation(self) -> None:
         """Verify Qt installation"""
