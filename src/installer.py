@@ -122,13 +122,13 @@ class QtHarmonyInstaller:
     
     def setup_tools(self) -> bool:
         """
-        Setup required tools (make, perl)
-        
+        Setup required tools (make, perl, mingw)
+
         Returns:
             True if tools setup successful, False otherwise
         """
         self.console.print("\n[bold cyan]Setting up build tools...[/bold cyan]")
-        
+
         tools_dir = self.workspace / "tools"
         config = self.config_manager.install_config
 
@@ -137,23 +137,30 @@ class QtHarmonyInstaller:
             tools_dir,
             self.config_manager.tool_config,
             make_path=config.make_path if config else None,
-            perl_path=config.perl_path if config else None
+            perl_path=config.perl_path if config else None,
+            mingw_path=config.mingw_path if config else None
         )
-        
-        make_ok, perl_ok = self.downloader.ensure_tools_available()
-        
-        if make_ok and perl_ok:
-            self.console.print("[green]✓ All tools are ready[/green]")
+
+        tools_ok, mingw_ok = self.downloader.ensure_tools_available()
+
+        if tools_ok:
+            self.console.print("[green]✓ All required tools are ready[/green]")
+
+            if not mingw_ok:
+                self.console.print(
+                    "[yellow]⚠ Warning: MinGW is not available. "
+                    "Some build configurations may not work.[/yellow]"
+                )
+                self.console.print(
+                    "[yellow]  You can configure MinGW path in config.yaml or let the "
+                    "installer download it.[/yellow]"
+                )
+
             return True
         else:
-            self.console.print("[red]✗ Some tools are missing[/red]")
-            
-            if not make_ok:
-                self.console.print("  [yellow]Make is required for building Qt[/yellow]")
-            
-            if not perl_ok:
-                self.console.print("  [yellow]Perl is required for Qt build scripts[/yellow]")
-            
+            self.console.print("[red]✗ Some required tools are missing[/red]")
+            self.console.print("  [yellow]Make and Perl are required for building Qt[/yellow]")
+
             return False
     
     def setup_environment(self) -> bool:
