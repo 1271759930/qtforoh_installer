@@ -117,8 +117,6 @@ class EnvironmentManager:
                 perl_bin = perl_path.parent
             elif perl_path.name.lower() == "bin":
                 perl_bin = perl_path
-            elif perl_path.name.lower() == "perl":
-                perl_bin = perl_path / "bin"
             else:
                 perl_bin = perl_path / "bin"
             self.env_vars["PERL_ROOT"] = str(perl_bin)
