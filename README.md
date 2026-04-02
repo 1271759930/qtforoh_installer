@@ -177,6 +177,8 @@ perl_path: "C:/Strawberry Perl/perl/bin/perl.exe"
 - `LLVM_INSTALL_DIR`: LLVM编译器路径
 - `OHOS_SDK_ROOT`: HarmonyOS SDK根路径
 - `QT5_ROOT_DIR`: Qt源码路径
+- `MINGW_ROOT`: MinGW工具bin目录（例如 `D:\Tools\llvm-mingw-xxxx\bin`）
+- `PERL_ROOT`: Perl工具bin目录（例如 `C:\Strawberry\perl\bin`）
 - `PATH`: 更新包含编译器和工具路径
 
 环境变量脚本会保存为：
