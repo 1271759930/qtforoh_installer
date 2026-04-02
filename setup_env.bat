@@ -10,6 +10,7 @@ SET QT5_ROOT_DIR=D:\code\tqtc-qt5
 SET QT_INSTALL_PATH=D:\code\qt_install
 SET QT_ARCH=arm64-v8a
 SET QT_BUILD_TYPE=release
+SET OHOS_TARGET_ARCH=arm64-v8a
 SET PATH=D:\DevEco\sdk\default\openharmony\native\llvm\bin;D:\Tools\llvm-mingw-20260324-ucrt-x86_64\bin;D:\Tools\llvm-mingw-20260324-ucrt-x86_64;C:\Strawberry\perl\bin;C:\Strawberry\perl\site\bin;C:\Strawberry\c\bin;C:\Windows\System32;C:\Windows;C:\Users\Administrator\AppData\Local\Python\pythoncore-3.14-64
 SET MINGW_ROOT=D:\Tools\llvm-mingw-20260324-ucrt-x86_64\bin
 SET PERL_ROOT=C:\Strawberry\perl\bin
