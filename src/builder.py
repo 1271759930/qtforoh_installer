@@ -67,12 +67,20 @@ class QtBuilder:
         self.console.print("\n[bold cyan]Generating configure command...[/bold cyan]")
         
         # Base configure command
+        # Prefer qtbase/configure.bat -top-level (same as Qt HarmonyOS wiki and
+        # common manual workflows). Fallback to top-level configure script.
         if is_windows():
-            configure_script = self.config.qt_source_path / "configure.bat"
+            qtbase_configure = self.config.qt_source_path / "qtbase" / "configure.bat"
+            root_configure = self.config.qt_source_path / "configure.bat"
+            if qtbase_configure.exists():
+                configure_script = qtbase_configure
+                cmd = [str(configure_script), "-top-level"]
+            else:
+                configure_script = root_configure
+                cmd = [str(configure_script)]
         else:
             configure_script = self.config.qt_source_path / "configure"
-        
-        cmd = [str(configure_script)]
+            cmd = [str(configure_script)]
         
         # Add common options
         cmd.extend([
@@ -139,6 +147,7 @@ class QtBuilder:
         
         cmd = self.generate_configure_command()
         env = self.env_manager.get_build_environment()
+        self._print_windows_path_check(env)
         
         # Run configure
         exit_code, stdout, stderr = run_command(
@@ -157,6 +166,60 @@ class QtBuilder:
             self.logger.error(f"Qt configuration failed with code: {exit_code}")
         
         return exit_code, stdout, stderr
+
+    def _print_windows_path_check(self, env: dict) -> None:
+        """
+        Print Windows build environment and verify required PATH entries.
+        """
+        if not is_windows():
+            return
+
+        self.console.print("\n[bold cyan]Build environment (Windows) before configure:[/bold cyan]")
+        self.console.print(f"  [cyan]MINGW_ROOT[/cyan]: {env.get('MINGW_ROOT', '(not set)')}")
+        self.console.print(f"  [cyan]PERL_ROOT[/cyan]: {env.get('PERL_ROOT', '(not set)')}")
+        self.console.print(f"  [cyan]QMAKESPEC[/cyan]: {env.get('QMAKESPEC', '(not set)')}")
+
+        path_value = env.get("PATH", "")
+        path_entries = [item for item in path_value.split(";") if item]
+        normalized_entries = {item.rstrip("\\/").lower() for item in path_entries}
+
+        required_paths: List[Path] = []
+
+        mingw_bin_raw = env.get("MINGW_ROOT")
+        if mingw_bin_raw:
+            mingw_bin = Path(mingw_bin_raw)
+            required_paths.extend([mingw_bin, mingw_bin.parent])
+
+        perl_bin_raw = env.get("PERL_ROOT")
+        if perl_bin_raw:
+            perl_bin = Path(perl_bin_raw)
+            if perl_bin.name.lower() != "bin":
+                perl_bin = perl_bin / "bin"
+            perl_root = perl_bin.parent
+            strawberry_root = perl_root.parent
+            required_paths.extend([
+                perl_bin,
+                strawberry_root / "c" / "bin",
+                perl_root / "site" / "bin",
+            ])
+
+        # Keep order and remove duplicates.
+        deduped_required = []
+        seen = set()
+        for item in required_paths:
+            key = str(item).rstrip("\\/").lower()
+            if key and key not in seen:
+                seen.add(key)
+                deduped_required.append(str(item))
+
+        if deduped_required:
+            self.console.print("  [bold]Required PATH entries:[/bold]")
+            for item in deduped_required:
+                exists_in_path = item.rstrip("\\/").lower() in normalized_entries
+                symbol = "[green]✓[/green]" if exists_in_path else "[red]✗[/red]"
+                self.console.print(f"    {symbol} {item}")
+        else:
+            self.console.print("  [yellow]No required Windows tool roots derived from config.[/yellow]")
     
     def build_qt(self) -> Tuple[int, str, str]:
         """
