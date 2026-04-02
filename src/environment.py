@@ -77,10 +77,18 @@ class EnvironmentManager:
     
     def _setup_windows_environment(self) -> None:
         """Setup Windows-specific environment"""
+        self._set_windows_tool_roots()
+
+        # Build tool paths configured by user (preferred on Windows)
+        custom_tool_path = self._build_windows_tool_path()
+        if custom_tool_path:
+            current_path = os.environ.get("PATH", "")
+            self.env_vars["PATH"] = f"{custom_tool_path};{current_path}"
+
         # Add LLVM bin to PATH
         llvm_bin = self.config.harmony_sdk_path / "native" / "llvm" / "bin"
         if llvm_bin.exists():
-            current_path = os.environ.get("PATH", "")
+            current_path = self.env_vars.get("PATH", os.environ.get("PATH", ""))
             self.env_vars["PATH"] = f"{llvm_bin};{current_path}"
         
         # Add Perl to PATH if in tools directory
@@ -88,6 +96,91 @@ class EnvironmentManager:
         if perl_bin.exists():
             current_path = self.env_vars.get("PATH", os.environ.get("PATH", ""))
             self.env_vars["PATH"] = f"{perl_bin};{current_path}"
+
+    def _set_windows_tool_roots(self) -> None:
+        """Set MINGW_ROOT/PERL_ROOT from user-configured tool paths."""
+        make_path = self.config.make_path
+        if make_path:
+            make_path = Path(make_path)
+            if make_path.is_file():
+                mingw_root = make_path.parent.parent if make_path.parent.name.lower() == "bin" else make_path.parent
+            elif make_path.name.lower() == "bin":
+                mingw_root = make_path.parent
+            else:
+                mingw_root = make_path
+            self.env_vars["MINGW_ROOT"] = str(mingw_root)
+
+        perl_path = self.config.perl_path
+        if perl_path:
+            perl_path = Path(perl_path)
+            perl_bin = perl_path.parent if perl_path.is_file() else perl_path
+            if perl_bin.name.lower() == "perl":
+                perl_root = perl_bin
+            elif perl_bin.name.lower() == "bin" and perl_bin.parent.name.lower() == "perl":
+                perl_root = perl_bin.parent
+            else:
+                perl_root = perl_bin.parent
+            self.env_vars["PERL_ROOT"] = str(perl_root)
+
+    def _build_windows_tool_path(self) -> str:
+        """
+        Build custom PATH entries from user-provided make/perl paths.
+
+        Expected order (based on Qt build requirements):
+        1) <make_root>\\bin
+        2) <make_root>
+        3) <perl_root>\\bin
+        4) <perl_root>\\site\\bin
+        5) <strawberry_root>\\c\\bin
+        """
+        entries = []
+
+        # make root path
+        make_path = self.config.make_path
+        if make_path:
+            make_path = Path(make_path)
+            # Support executable path, bin dir path, or root dir path
+            if make_path.is_file():
+                make_root = make_path.parent.parent if make_path.parent.name.lower() == "bin" else make_path.parent
+            elif make_path.name.lower() == "bin":
+                make_root = make_path.parent
+            else:
+                make_root = make_path
+
+            entries.extend([
+                str(make_root / "bin"),
+                str(make_root),
+            ])
+
+        # perl bin path
+        perl_path = self.config.perl_path
+        if perl_path:
+            perl_path = Path(perl_path)
+            # Support executable path or perl bin directory path
+            perl_bin = perl_path.parent if perl_path.is_file() else perl_path
+
+            # If user passed perl root, normalize to perl/bin
+            if perl_bin.name.lower() == "perl":
+                perl_bin = perl_bin / "bin"
+
+            entries.append(str(perl_bin))
+
+            perl_root = perl_bin.parent if perl_bin.name.lower() == "bin" else perl_bin
+            entries.append(str(perl_root / "site" / "bin"))
+
+            strawberry_root = perl_root.parent
+            entries.append(str(strawberry_root / "c" / "bin"))
+
+        # Keep order and remove duplicates
+        deduped = []
+        seen = set()
+        for item in entries:
+            key = item.lower()
+            if key not in seen:
+                seen.add(key)
+                deduped.append(item)
+
+        return ";".join(deduped)
     
     def _setup_unix_environment(self) -> None:
         """Setup Unix-specific environment (macOS/Linux)"""
