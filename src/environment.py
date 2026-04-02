@@ -77,6 +77,8 @@ class EnvironmentManager:
     
     def _setup_windows_environment(self) -> None:
         """Setup Windows-specific environment"""
+        self._set_windows_tool_roots()
+
         # Build tool paths configured by user (preferred on Windows)
         custom_tool_path = self._build_windows_tool_path()
         if custom_tool_path:
@@ -94,6 +96,30 @@ class EnvironmentManager:
         if perl_bin.exists():
             current_path = self.env_vars.get("PATH", os.environ.get("PATH", ""))
             self.env_vars["PATH"] = f"{perl_bin};{current_path}"
+
+    def _set_windows_tool_roots(self) -> None:
+        """Set MINGW_ROOT/PERL_ROOT from user-configured tool paths."""
+        make_path = self.config.make_path
+        if make_path:
+            make_path = Path(make_path)
+            if make_path.is_file():
+                mingw_bin = make_path.parent
+            elif make_path.name.lower() == "bin":
+                mingw_bin = make_path
+            else:
+                mingw_bin = make_path / "bin"
+            self.env_vars["MINGW_ROOT"] = str(mingw_bin)
+
+        perl_path = self.config.perl_path
+        if perl_path:
+            perl_path = Path(perl_path)
+            if perl_path.is_file():
+                perl_bin = perl_path.parent
+            elif perl_path.name.lower() == "bin":
+                perl_bin = perl_path
+            else:
+                perl_bin = perl_path / "bin"
+            self.env_vars["PERL_ROOT"] = str(perl_bin)
 
     def _build_windows_tool_path(self) -> str:
         """

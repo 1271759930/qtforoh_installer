@@ -30,8 +30,8 @@ class QtBuilder:
         self.logger = logger or logging.getLogger("qtohos-installer")
         self.console = Console()
         
-        # Build directory
-        self.build_dir = config.qt_source_path / f"build_{config.architecture}"
+        # Build directory (parallel to source dir, per Qt HarmonyOS wiki)
+        self.build_dir = config.qt_source_path.parent / f"build_{config.architecture}"
         
         # Make command
         self.make_cmd = "mingw32-make" if is_windows() else "make"

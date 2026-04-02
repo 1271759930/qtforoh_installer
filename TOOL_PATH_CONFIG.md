@@ -160,6 +160,20 @@ Check Complete
 3. **tools目录** - 查找项目tools目录中的工具
 4. **自动安装** - 如果都找不到，尝试自动安装
 
+## Windows额外环境变量
+
+根据工具路径配置，安装器还会自动设置：
+
+- `MINGW_ROOT=<make目录>/bin`
+- `PERL_ROOT=<perl目录>/bin`
+
+示例（对应用户自定义目录）：
+
+```text
+MINGW_ROOT=D:\Tools\llvm-mingw-20250319-ucrt-x86_64\bin
+PERL_ROOT=C:\Strawberry\perl\bin
+```
+
 ## 配置示例
 
 ### 示例1：使用系统安装的工具
