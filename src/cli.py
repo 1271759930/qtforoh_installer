@@ -47,10 +47,17 @@ def cli():
     default=".",
     help="Workspace directory for installation"
 )
-def install(workspace: str):
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    default=False,
+    help="Skip confirmation prompts (use existing config)"
+)
+def install(workspace: str, yes: bool):
     """
     Run interactive installation process
-    
+
     This command will:
     1. Prompt for Qt source path, HarmonyOS SDK path, and installation path
     2. Download required tools (make, perl)
@@ -58,12 +65,12 @@ def install(workspace: str):
     4. Build and install Qt for HarmonyOS
     """
     workspace_path = Path(workspace).resolve()
-    
+
     console.print("\n[bold cyan]Qt for HarmonyOS Installation Tool[/bold cyan]")
     console.print(f"Workspace: {workspace_path}\n")
-    
-    installer = QtHarmonyInstaller(workspace_path)
-    
+
+    installer = QtHarmonyInstaller(workspace_path, auto_confirm=yes)
+
     if installer.run():
         console.print("\n[bold green]✓ Installation successful![/bold green]")
         sys.exit(0)

@@ -19,12 +19,13 @@ from .utils import setup_logging, check_python_version, is_windows
 
 class QtHarmonyInstaller:
     """Main installation controller"""
-    
-    def __init__(self, workspace: Path):
+
+    def __init__(self, workspace: Path, auto_confirm: bool = False):
         self.workspace = workspace
         self.console = Console()
         self.logger: Optional[logging.Logger] = None
-        
+        self.auto_confirm = auto_confirm
+
         # Components
         self.config_manager = ConfigManager(workspace / "config.yaml")
         self.interactive = InteractivePrompt()
@@ -94,28 +95,32 @@ class QtHarmonyInstaller:
     def load_or_prompt_config(self) -> Optional[InstallConfig]:
         """
         Load existing config or prompt user for new config
-        
+
         Returns:
             InstallConfig if successful, None otherwise
         """
         # Try to load existing config
         if self.config_manager.load_config():
             self.console.print("\n[yellow]Found existing configuration[/yellow]")
-            
+
             # Display existing config
             config = self.config_manager.install_config
-            if config and self.interactive.confirm_configuration(config):
-                return config
-        
+            if config:
+                if self.auto_confirm:
+                    self.console.print("[green]Using existing configuration (auto-confirm)[/green]")
+                    return config
+                elif self.interactive.confirm_configuration(config):
+                    return config
+
         # Prompt for new configuration
         try:
             config = self.interactive.collect_configuration()
             self.config_manager.install_config = config
             self.config_manager.save_config()
-            
+
             self.console.print("\n[green]✓ Configuration saved[/green]")
             return config
-        
+
         except KeyboardInterrupt:
             self.console.print("\n[yellow]Installation cancelled by user[/yellow]")
             return None
