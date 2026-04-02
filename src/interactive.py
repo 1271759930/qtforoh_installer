@@ -250,15 +250,16 @@ This tool will help you install Qt for HarmonyOS by:
             except ValueError:
                 self.console.print("[red]✗ Please enter a valid number[/red]")
 
-    def prompt_tool_paths(self) -> Tuple[Optional[Path], Optional[Path]]:
+    def prompt_tool_paths(self) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
         """Prompt for tool paths if already installed"""
         self.console.print("\n[bold cyan]Step 7: Build Tools Configuration[/bold cyan]")
         self.console.print(
-            "[yellow]Note: make and perl are required for building Qt[/yellow]"
+            "[yellow]Note: make, perl, and MinGW are required for building Qt[/yellow]"
         )
 
         make_path = None
         perl_path = None
+        mingw_path = None
 
         # Ask about make
         has_make = Confirm.ask(
@@ -324,7 +325,39 @@ This tool will help you install Qt for HarmonyOS by:
                     if not retry:
                         break
 
-        return make_path, perl_path
+        # Ask about MinGW
+        has_mingw = Confirm.ask(
+            "\n[bold]Have you already installed MinGW?[/bold]",
+            default=False
+        )
+
+        if has_mingw:
+            self.console.print("\n[bold]Please specify MinGW path[/bold]")
+            self.console.print("[yellow]You can provide either MinGW bin directory or root directory[/yellow]")
+            self.console.print("[yellow]Example 1: D:\\Tools\\llvm-mingw-xxxx\\bin[/yellow]")
+            self.console.print("[yellow]Example 2: D:\\Tools\\llvm-mingw-xxxx[/yellow]")
+
+            while True:
+                response = Prompt.ask(
+                    "\n[bold green]MinGW path[/bold green] (or press Enter to skip)"
+                )
+
+                if not response.strip():
+                    self.console.print("[yellow]Skipping MinGW path configuration[/yellow]")
+                    break
+
+                path = Path(response.strip())
+                if path.exists():
+                    mingw_path = path
+                    self.console.print(f"[green]✓ MinGW path set: {mingw_path}[/green]")
+                    break
+                else:
+                    self.console.print(f"[red]✗ Path not found: {path}[/red]")
+                    retry = Confirm.ask("[bold]Try again?[/bold]", default=True)
+                    if not retry:
+                        break
+
+        return make_path, perl_path, mingw_path
     
     def confirm_configuration(self, config: InstallConfig) -> bool:
         """Display configuration and ask for confirmation"""
@@ -348,7 +381,9 @@ This tool will help you install Qt for HarmonyOS by:
             table.add_row("Make Path", str(config.make_path))
         if config.perl_path:
             table.add_row("Perl Path", str(config.perl_path))
-        
+        if config.mingw_path:
+            table.add_row("MinGW Path", str(config.mingw_path))
+
         self.console.print(table)
         
         # Use Rich Confirm
@@ -374,8 +409,8 @@ This tool will help you install Qt for HarmonyOS by:
         parallel_jobs = self.prompt_parallel_jobs()
         
         # Prompt for tool paths
-        make_path, perl_path = self.prompt_tool_paths()
-        
+        make_path, perl_path, mingw_path = self.prompt_tool_paths()
+
         # Create configuration
         config = InstallConfig(
             qt_source_path=qt_source_path,
@@ -385,7 +420,8 @@ This tool will help you install Qt for HarmonyOS by:
             build_type=build_type,
             parallel_jobs=parallel_jobs,
             make_path=make_path,
-            perl_path=perl_path
+            perl_path=perl_path,
+            mingw_path=mingw_path
         )
 
         # Confirm configuration
