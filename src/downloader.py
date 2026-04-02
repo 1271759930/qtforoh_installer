@@ -23,19 +23,17 @@ class ToolDownloader:
     """Download and setup required tools"""
 
     def __init__(self, tools_dir: Path, tool_config: ToolConfig,
-                 make_path: Optional[Path] = None, perl_path: Optional[Path] = None,
-                 mingw_path: Optional[Path] = None):
+                 make_path: Optional[Path] = None, perl_path: Optional[Path] = None):
         self.tools_dir = tools_dir
         self.tool_config = tool_config
         self.console = Console()
         self.make_path = tools_dir / "make"
         self.perl_path = tools_dir / "perl"
-        self.mingw_path = tools_dir / "mingw"
 
         # Store configured tool paths
+        # make_path should point to mingw32-make which is part of MinGW toolchain
         self.configured_make_path = make_path
         self.configured_perl_path = perl_path
-        self.configured_mingw_path = mingw_path
 
         ensure_directory(self.tools_dir)
         ensure_directory(self.make_path)
@@ -100,22 +98,26 @@ class ToolDownloader:
 
     def _check_mingw(self) -> bool:
         """Check if MinGW (gcc) is available"""
-        # First check configured path
-        if self.configured_mingw_path and self.configured_mingw_path.exists():
-            self.console.print(f"[green]✓ Using configured MinGW: {self.configured_mingw_path}[/green]")
-            return True
-
         # Check if gcc is in PATH
         if shutil.which("gcc"):
             return True
 
         # Check if mingw32-make is in PATH (indicates MinGW installation)
         if is_windows() and shutil.which("mingw32-make"):
+            # If mingw32-make is in PATH, gcc should also be available
             return True
 
-        # Check if gcc.exe is in tools/mingw/bin
-        if is_windows():
-            gcc_exe = self.mingw_path / "bin" / "gcc.exe"
+        # Check configured make path - if user set make path, gcc should be in same directory
+        if self.configured_make_path and self.configured_make_path.exists():
+            make_path = Path(self.configured_make_path)
+            if make_path.is_file():
+                bin_dir = make_path.parent
+            elif make_path.name.lower() == "bin":
+                bin_dir = make_path
+            else:
+                bin_dir = make_path / "bin"
+
+            gcc_exe = bin_dir / "gcc.exe" if is_windows() else bin_dir / "gcc"
             if gcc_exe.exists():
                 return True
 
@@ -434,9 +436,19 @@ class ToolDownloader:
         # Check gcc
         gcc_cmd = shutil.which("gcc")
         if not gcc_cmd and is_windows():
-            gcc_exe = self.mingw_path / "bin" / "gcc.exe"
-            if gcc_exe.exists():
-                gcc_cmd = str(gcc_exe)
+            # Try to find gcc in the same directory as configured make
+            if self.configured_make_path and self.configured_make_path.exists():
+                make_path = Path(self.configured_make_path)
+                if make_path.is_file():
+                    bin_dir = make_path.parent
+                elif make_path.name.lower() == "bin":
+                    bin_dir = make_path
+                else:
+                    bin_dir = make_path / "bin"
+
+                gcc_exe = bin_dir / "gcc.exe"
+                if gcc_exe.exists():
+                    gcc_cmd = str(gcc_exe)
 
         if gcc_cmd:
             try:

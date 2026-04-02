@@ -97,32 +97,22 @@ class EnvironmentManager:
         self._set_windows_tool_roots()
 
         # Build tool paths configured by user (preferred on Windows)
+        # make_path should point to mingw32-make which is part of MinGW toolchain
         custom_tool_path = self._build_windows_tool_path()
         if custom_tool_path:
             current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{custom_tool_path};{current_path}"
 
-        # Add MinGW to PATH if configured
-        if self.config.mingw_path:
-            mingw_bin = Path(self.config.mingw_path)
-            if mingw_bin.is_file():
-                mingw_bin = mingw_bin.parent
-            if mingw_bin.name.lower() != "bin":
-                mingw_bin = mingw_bin / "bin"
-            current_path = self.env_vars.get("PATH", "")
-            self.env_vars["PATH"] = f"{mingw_bin};{current_path}"
-            self.console.print(f"[green]✓ Added MinGW to PATH: {mingw_bin}[/green]")
-
         # Add LLVM bin to PATH
         llvm_bin = self.config.harmony_sdk_path / "native" / "llvm" / "bin"
         if llvm_bin.exists():
-            current_path = self.env_vars.get("PATH", os.environ.get("PATH", ""))
+            current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{llvm_bin};{current_path}"
 
         # Add Perl to PATH if in tools directory
         perl_bin = Path("tools") / "perl" / "perl" / "bin"
         if perl_bin.exists():
-            current_path = self.env_vars.get("PATH", os.environ.get("PATH", ""))
+            current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{perl_bin};{current_path}"
 
     def _set_windows_tool_roots(self) -> None:

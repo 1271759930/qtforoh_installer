@@ -122,7 +122,7 @@ class QtHarmonyInstaller:
     
     def setup_tools(self) -> bool:
         """
-        Setup required tools (make, perl, mingw)
+        Setup required tools (make, perl)
 
         Returns:
             True if tools setup successful, False otherwise
@@ -133,12 +133,12 @@ class QtHarmonyInstaller:
         config = self.config_manager.install_config
 
         # Pass configured tool paths to downloader
+        # make_path should point to mingw32-make which is part of MinGW toolchain
         self.downloader = ToolDownloader(
             tools_dir,
             self.config_manager.tool_config,
             make_path=config.make_path if config else None,
-            perl_path=config.perl_path if config else None,
-            mingw_path=config.mingw_path if config else None
+            perl_path=config.perl_path if config else None
         )
 
         tools_ok, mingw_ok = self.downloader.ensure_tools_available()
@@ -148,12 +148,12 @@ class QtHarmonyInstaller:
 
             if not mingw_ok:
                 self.console.print(
-                    "[yellow]⚠ Warning: MinGW is not available. "
-                    "Some build configurations may not work.[/yellow]"
+                    "[yellow]⚠ Warning: MinGW (gcc/g++) not detected in PATH. "
+                    "Host tools may use MSVC instead.[/yellow]"
                 )
                 self.console.print(
-                    "[yellow]  You can configure MinGW path in config.yaml or let the "
-                    "installer download it.[/yellow]"
+                    "[yellow]  Consider configuring make path to MinGW directory "
+                    "which contains gcc/g++.[/yellow]"
                 )
 
             return True

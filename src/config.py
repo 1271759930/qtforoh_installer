@@ -32,9 +32,10 @@ class InstallConfig:
         "qtx11extras", "doc"
     ])
     # 工具路径配置（可选）
+    # make_path应指向mingw32-make，它是MinGW工具链的一部分
+    # MinGW工具链包含gcc、g++、mingw32-make等，配置make路径即可
     make_path: Optional[Path] = None
     perl_path: Optional[Path] = None
-    mingw_path: Optional[Path] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary"""
@@ -49,7 +50,6 @@ class InstallConfig:
             "skip_modules": self.skip_modules,
             "make_path": str(self.make_path) if self.make_path else None,
             "perl_path": str(self.perl_path) if self.perl_path else None,
-            "mingw_path": str(self.mingw_path) if self.mingw_path else None,
         }
 
     @classmethod
@@ -57,7 +57,6 @@ class InstallConfig:
         """Create from dictionary"""
         make_path = data.get("make_path")
         perl_path = data.get("perl_path")
-        mingw_path = data.get("mingw_path")
 
         return cls(
             qt_source_path=Path(data["qt_source_path"]),
@@ -70,7 +69,6 @@ class InstallConfig:
             skip_modules=data.get("skip_modules", []),
             make_path=Path(make_path) if make_path else None,
             perl_path=Path(perl_path) if perl_path else None,
-            mingw_path=Path(mingw_path) if mingw_path else None,
         )
 
 
