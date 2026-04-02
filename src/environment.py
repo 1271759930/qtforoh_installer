@@ -103,24 +103,25 @@ class EnvironmentManager:
         if make_path:
             make_path = Path(make_path)
             if make_path.is_file():
-                mingw_root = make_path.parent.parent if make_path.parent.name.lower() == "bin" else make_path.parent
+                mingw_bin = make_path.parent
             elif make_path.name.lower() == "bin":
-                mingw_root = make_path.parent
+                mingw_bin = make_path
             else:
-                mingw_root = make_path
-            self.env_vars["MINGW_ROOT"] = str(mingw_root)
+                mingw_bin = make_path / "bin"
+            self.env_vars["MINGW_ROOT"] = str(mingw_bin)
 
         perl_path = self.config.perl_path
         if perl_path:
             perl_path = Path(perl_path)
-            perl_bin = perl_path.parent if perl_path.is_file() else perl_path
-            if perl_bin.name.lower() == "perl":
-                perl_root = perl_bin
-            elif perl_bin.name.lower() == "bin" and perl_bin.parent.name.lower() == "perl":
-                perl_root = perl_bin.parent
+            if perl_path.is_file():
+                perl_bin = perl_path.parent
+            elif perl_path.name.lower() == "bin":
+                perl_bin = perl_path
+            elif perl_path.name.lower() == "perl":
+                perl_bin = perl_path / "bin"
             else:
-                perl_root = perl_bin.parent
-            self.env_vars["PERL_ROOT"] = str(perl_root)
+                perl_bin = perl_path / "bin"
+            self.env_vars["PERL_ROOT"] = str(perl_bin)
 
     def _build_windows_tool_path(self) -> str:
         """
