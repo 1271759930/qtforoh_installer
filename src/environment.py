@@ -224,16 +224,34 @@ class EnvironmentManager:
     def get_build_environment(self) -> Dict[str, str]:
         """
         Get environment variables for build process
-        
+
         Returns:
             Complete environment dictionary for subprocess
         """
         # Start with current environment
         env = os.environ.copy()
-        
-        # Update with our variables
+
+        # Update with our variables (this will override existing values)
         env.update(self.env_vars)
-        
+
+        # Debug: Print final PATH for verification
+        if is_windows():
+            self.console.print("\n[bold cyan]Final build environment PATH:[/bold cyan]")
+            path_parts = env.get("PATH", "").split(os.pathsep)
+            for i, part in enumerate(path_parts[:15]):  # Show first 15 entries
+                marker = ""
+                if "mingw" in part.lower():
+                    marker = " [green](MinGW)[/green]"
+                elif "perl" in part.lower():
+                    marker = " [green](Perl)[/green]"
+                elif "llvm" in part.lower() or "clang" in part.lower():
+                    marker = " [green](LLVM)[/green]"
+                elif "msvc" in part.lower() or "visual" in part.lower():
+                    marker = " [red](MSVC - PROBLEM!)[/red]"
+                self.console.print(f"  {i+1}. {part}{marker}")
+            if len(path_parts) > 15:
+                self.console.print(f"  ... and {len(path_parts) - 15} more entries")
+
         return env
     
     def validate_environment(self) -> bool:
