@@ -136,13 +136,14 @@ set "OHOS_SDK_SYSROOT={self.config.harmony_sdk_path}\\native\\sysroot"
 set "LLVM_INSTALL_DIR={llvm_bin}\\.."
 set "OHOS_SDK_ROOT={self.config.harmony_sdk_path}"
 set "OHOS_TARGET_ARCH={self.config.architecture}"
-set "QMAKESPEC=win32-g++"
+
+:: NOTE: Do NOT set QMAKESPEC before configure - Qt will detect it automatically
+:: Setting QMAKESPEC before configure causes: "Please make sure to unset QMAKESPEC"
 
 echo.
 echo Environment:
 echo   NATIVE_OHOS_SDK: %NATIVE_OHOS_SDK%
 echo   OHOS_TARGET_ARCH: %OHOS_TARGET_ARCH%
-echo   QMAKESPEC: %QMAKESPEC%
 echo.
 
 :: Check compilers
@@ -161,6 +162,12 @@ if %errorlevel% equ 0 (
     echo [ERROR] GCC not found
     exit /b 1
 )
+
+:: Unset Qt environment variables that should not be set before configure
+set "QMAKESPEC="
+set "XQMAKESPEC="
+set "QMAKEPATH="
+set "QMAKEFEATURES="
 
 echo.
 echo ============================================
