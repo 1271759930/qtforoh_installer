@@ -67,12 +67,20 @@ class QtBuilder:
         self.console.print("\n[bold cyan]Generating configure command...[/bold cyan]")
         
         # Base configure command
+        # Prefer qtbase/configure.bat -top-level (same as Qt HarmonyOS wiki and
+        # common manual workflows). Fallback to top-level configure script.
         if is_windows():
-            configure_script = self.config.qt_source_path / "configure.bat"
+            qtbase_configure = self.config.qt_source_path / "qtbase" / "configure.bat"
+            root_configure = self.config.qt_source_path / "configure.bat"
+            if qtbase_configure.exists():
+                configure_script = qtbase_configure
+                cmd = [str(configure_script), "-top-level"]
+            else:
+                configure_script = root_configure
+                cmd = [str(configure_script)]
         else:
             configure_script = self.config.qt_source_path / "configure"
-        
-        cmd = [str(configure_script)]
+            cmd = [str(configure_script)]
         
         # Add common options
         cmd.extend([
