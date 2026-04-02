@@ -68,14 +68,17 @@ class EnvironmentManager:
             "LLVM_INSTALL_DIR": str(llvm_path),
             "OHOS_SDK_ROOT": str(self.config.harmony_sdk_path),
             "HOS_SDK_HOME": str(self.config.harmony_sdk_path),
-            
+
             # Qt paths
             "QT5_ROOT_DIR": str(self.config.qt_source_path),
             "QT_INSTALL_PATH": str(self.config.install_path),
-            
+
             # Build configuration
             "QT_ARCH": self.config.architecture,
             "QT_BUILD_TYPE": self.config.build_type,
+
+            # Required by ohos-clang mkspec (qmake.conf uses this)
+            "OHOS_TARGET_ARCH": self.config.architecture,
         }
         
         # Platform-specific settings

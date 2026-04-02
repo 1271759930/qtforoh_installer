@@ -85,19 +85,29 @@ class QtBuilder:
         # Add common options
         cmd.extend([
             "-v",  # Verbose output
-            "-xplatform", "ohos-clang",  # Target platform
         ])
 
         # CRITICAL: Specify host platform to use MinGW for building host tools
         if is_windows():
             cmd.extend(["-platform", "win32-g++"])
 
+        # Cross-compilation target platform
+        cmd.extend(["-xplatform", "ohos-clang"])
+
         cmd.extend([
             "-opensource",
             "-confirm-license",
             "-no-use-gold-linker",
             "-no-gcc-sysroot",
-            "-ohos-arch", self.config.architecture,
+        ])
+
+        # Qt5 specific: Use -device-option for OHOS architecture
+        cmd.extend(["-device-option", f"OHOS_ARCH={self.config.architecture}"])
+
+        # OpenGL configuration for HarmonyOS
+        cmd.extend(["-opengl", "es2", "-opengles3"])
+
+        cmd.extend([
             "-c++std", "c++14",
             "-nomake", "examples",
             "-nomake", "tests",
@@ -134,7 +144,10 @@ class QtBuilder:
         
         # No DBus (not available on HarmonyOS)
         cmd.append("-no-dbus")
-        
+
+        # Specify make tool for Qt5 (required for proper build)
+        cmd.extend(["-make-tool", f"{self.make_cmd} -j{self.config.parallel_jobs}"])
+
         # Display command
         self.console.print("\n[bold]Configure command:[/bold]")
         cmd_str = " ".join(cmd)
