@@ -86,6 +86,13 @@ class QtBuilder:
         cmd.extend([
             "-v",  # Verbose output
             "-xplatform", "ohos-clang",  # Target platform
+        ])
+
+        # CRITICAL: Specify host platform to use MinGW for building host tools
+        if is_windows():
+            cmd.extend(["-platform", "win32-g++"])
+
+        cmd.extend([
             "-opensource",
             "-confirm-license",
             "-no-use-gold-linker",
@@ -148,7 +155,8 @@ class QtBuilder:
         cmd = self.generate_configure_command()
         env = self.env_manager.get_build_environment()
         self._print_windows_path_check(env)
-        
+        self._print_compiler_detection(env)
+
         # Run configure
         exit_code, stdout, stderr = run_command(
             cmd,
@@ -220,7 +228,54 @@ class QtBuilder:
                 self.console.print(f"    {symbol} {item}")
         else:
             self.console.print("  [yellow]No required Windows tool roots derived from config.[/yellow]")
-    
+
+    def _print_compiler_detection(self, env: dict) -> None:
+        """
+        Print compiler detection status before configure.
+
+        Verifies that:
+        - MSVC cl.exe is NOT in PATH (should not be found)
+        - GCC IS in PATH (should be found on Windows)
+        - Clang IS in PATH (should be found)
+        """
+        if not is_windows():
+            return
+
+        self.console.print("\n[bold cyan]Compiler detection before configure:[/bold cyan]")
+
+        path_value = env.get("PATH", "")
+
+        # Check for MSVC cl.exe (should NOT be found)
+        cl_path = shutil.which("cl.exe", path=path_value)
+        if cl_path:
+            self.console.print(f"  [red]✗ MSVC cl.exe found (PROBLEM): {cl_path}[/red]")
+            self.console.print("    [yellow]This may cause configure to select MSVC instead of MinGW[/yellow]")
+        else:
+            self.console.print("  [green]✓ MSVC cl.exe not found (correct)[/green]")
+
+        # Check for GCC (SHOULD be found on Windows)
+        gcc_path = shutil.which("gcc.exe", path=path_value)
+        if gcc_path:
+            self.console.print(f"  [green]✓ GCC found: {gcc_path}[/green]")
+        else:
+            self.console.print("  [red]✗ GCC not found (PROBLEM)[/red]")
+            self.console.print("    [yellow]MinGW should be in PATH for building host tools[/yellow]")
+
+        # Check for Clang (SHOULD be found)
+        clang_path = shutil.which("clang.exe", path=path_value)
+        if clang_path:
+            self.console.print(f"  [green]✓ Clang found: {clang_path}[/green]")
+        else:
+            self.console.print("  [yellow]⚠ Clang not found[/yellow]")
+            self.console.print("    [yellow]Clang is needed for cross-compiling to HarmonyOS[/yellow]")
+
+        self.logger.info(
+            "Compiler detection - cl.exe: %s, gcc: %s, clang: %s",
+            cl_path or "(not found)",
+            gcc_path or "(not found)",
+            clang_path or "(not found)",
+        )
+
     def build_qt(self) -> Tuple[int, str, str]:
         """
         Build Qt (make)
