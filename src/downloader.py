@@ -313,70 +313,6 @@ class ToolDownloader:
 
         return False
 
-    def download_mingw(self) -> bool:
-        """
-        Provide download instructions for MinGW (doesn't auto-download)
-
-        Returns:
-            False - MinGW requires manual installation
-        """
-        self.console.print("\n[bold cyan]MinGW Toolchain Setup[/bold cyan]")
-
-        if is_windows():
-            # Try winget first
-            if shutil.which("winget"):
-                self.console.print("\n[cyan]Installing MinGW-w64 via winget...[/cyan]")
-                try:
-                    result = subprocess.run(
-                        ["winget", "install", "MSYS2.MSYS2", "--accept-source-agreements"],
-                        capture_output=True,
-                        text=True,
-                        encoding='utf-8',
-                        errors='ignore'
-                    )
-                    if result.returncode == 0:
-                        self.console.print("[green]✓ MSYS2 installed successfully via winget[/green]")
-                        self.console.print(
-                            "[yellow]Note: Run 'pacman -S mingw-w64-x86_64-gcc' in MSYS2 to install GCC[/yellow]"
-                        )
-                        return True
-                except Exception as e:
-                    self.console.print(f"[yellow]Winget installation failed: {e}[/yellow]")
-
-            # Try chocolatey
-            if shutil.which("choco"):
-                self.console.print("\n[cyan]Installing MinGW via chocolatey...[/cyan]")
-                try:
-                    result = subprocess.run(
-                        ["choco", "install", "mingw", "-y"],
-                        capture_output=True,
-                        text=True,
-                        encoding='utf-8',
-                        errors='ignore'
-                    )
-                    if result.returncode == 0:
-                        self.console.print("[green]✓ MinGW installed successfully via chocolatey[/green]")
-                        return True
-                except Exception as e:
-                    self.console.print(f"[yellow]Chocolatey installation failed: {e}[/yellow]")
-
-            # Manual download instructions with mirror URLs
-            self.console.print("\n[yellow]Please install MinGW manually:[/yellow]")
-            self.console.print("  Option 1: winget install MSYS2.MSYS2")
-            self.console.print("  Option 2: choco install mingw")
-            self.console.print("  Option 3: Download from https://www.mingw-w64.org/downloads/")
-            self.console.print("  Mirror 1: https://sourceforge.net/projects/mingw-w64/files/")
-            self.console.print("  Mirror 2: https://github.com/niXman/mingw-builds-binaries/releases")
-        else:
-            self.console.print(
-                "[yellow]MinGW should be available via package manager on Linux/macOS[/yellow]"
-            )
-            self.console.print("Please install gcc using:")
-            self.console.print("  Ubuntu/Debian: sudo apt-get install gcc g++ make")
-            self.console.print("  macOS: xcode-select --install")
-
-        return False
-
     def validate_toolchain(self) -> Tuple[bool, str]:
         """
         Validate that make, perl, and gcc are working
@@ -488,7 +424,10 @@ class ToolDownloader:
         if make_ok and perl_ok:
             self.console.print("\n[green]✓ All required tools are available[/green]")
             if mingw_ok:
-                self.console.print("[green]✓ MinGW toolchain is available[/green]")
+                self.console.print("[green]✓ MinGW toolchain (gcc/g++) is available[/green]")
+            else:
+                self.console.print("[yellow]⚠ MinGW gcc not detected - host tools may use MSVC[/yellow]")
+                self.console.print("[yellow]  Please install MinGW and configure make_path to fix this[/yellow]")
             return True, mingw_ok
 
         self.console.print("\n[yellow]Some tools are missing. Downloading...[/yellow]")
@@ -499,8 +438,8 @@ class ToolDownloader:
         if not perl_ok:
             perl_ok = self.download_perl()
 
-        if not mingw_ok:
-            mingw_ok = self.download_mingw()
+        # Re-check mingw after tools are set up
+        _, _, mingw_ok = self.check_existing_tools()
 
         all_tools_ok = make_ok and perl_ok
         return all_tools_ok, mingw_ok
