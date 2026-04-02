@@ -19,7 +19,21 @@ class EnvironmentManager:
         self.config = config
         self.console = Console()
         self.env_vars: Dict[str, str] = {}
-    
+
+    def reset_path_to_minimum(self) -> None:
+        """
+        Reset PATH to minimum required paths.
+        This prevents system compilers (MSVC) from polluting the build environment.
+        """
+        if is_windows():
+            minimum_paths = [
+                "C:\\Windows\\System32",
+                "C:\\Windows",
+                os.path.dirname(sys.executable)  # Python directory
+            ]
+            self.env_vars["PATH"] = os.pathsep.join(minimum_paths)
+            self.console.print("[cyan]PATH reset to minimum to avoid MSVC pollution[/cyan]")
+
     def setup_environment(self) -> Dict[str, str]:
         """
         Setup all required environment variables
@@ -77,20 +91,34 @@ class EnvironmentManager:
     
     def _setup_windows_environment(self) -> None:
         """Setup Windows-specific environment"""
+        # CRITICAL: Reset PATH first to avoid MSVC pollution
+        self.reset_path_to_minimum()
+
         self._set_windows_tool_roots()
 
         # Build tool paths configured by user (preferred on Windows)
         custom_tool_path = self._build_windows_tool_path()
         if custom_tool_path:
-            current_path = os.environ.get("PATH", "")
+            current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{custom_tool_path};{current_path}"
+
+        # Add MinGW to PATH if configured
+        if self.config.mingw_path:
+            mingw_bin = Path(self.config.mingw_path)
+            if mingw_bin.is_file():
+                mingw_bin = mingw_bin.parent
+            if mingw_bin.name.lower() != "bin":
+                mingw_bin = mingw_bin / "bin"
+            current_path = self.env_vars.get("PATH", "")
+            self.env_vars["PATH"] = f"{mingw_bin};{current_path}"
+            self.console.print(f"[green]✓ Added MinGW to PATH: {mingw_bin}[/green]")
 
         # Add LLVM bin to PATH
         llvm_bin = self.config.harmony_sdk_path / "native" / "llvm" / "bin"
         if llvm_bin.exists():
             current_path = self.env_vars.get("PATH", os.environ.get("PATH", ""))
             self.env_vars["PATH"] = f"{llvm_bin};{current_path}"
-        
+
         # Add Perl to PATH if in tools directory
         perl_bin = Path("tools") / "perl" / "perl" / "bin"
         if perl_bin.exists():
