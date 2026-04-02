@@ -23,32 +23,36 @@ class ToolDownloader:
     """Download and setup required tools"""
 
     def __init__(self, tools_dir: Path, tool_config: ToolConfig,
-                 make_path: Optional[Path] = None, perl_path: Optional[Path] = None):
+                 make_path: Optional[Path] = None, perl_path: Optional[Path] = None,
+                 mingw_path: Optional[Path] = None):
         self.tools_dir = tools_dir
         self.tool_config = tool_config
         self.console = Console()
         self.make_path = tools_dir / "make"
         self.perl_path = tools_dir / "perl"
+        self.mingw_path = tools_dir / "mingw"
 
         # Store configured tool paths
         self.configured_make_path = make_path
         self.configured_perl_path = perl_path
+        self.configured_mingw_path = mingw_path
 
         ensure_directory(self.tools_dir)
         ensure_directory(self.make_path)
         ensure_directory(self.perl_path)
 
-    def check_existing_tools(self) -> Tuple[bool, bool]:
+    def check_existing_tools(self) -> Tuple[bool, bool, bool]:
         """
         Check if tools are already available
 
         Returns:
-            Tuple of (make_available, perl_available)
+            Tuple of (make_available, perl_available, mingw_available)
         """
         make_available = self._check_make()
         perl_available = self._check_perl()
+        mingw_available = self._check_mingw()
 
-        return make_available, perl_available
+        return make_available, perl_available, mingw_available
 
     def _check_make(self) -> bool:
         """Check if make is available"""
@@ -91,6 +95,29 @@ class ToolDownloader:
 
         if perl_exe.exists():
             return True
+
+        return False
+
+    def _check_mingw(self) -> bool:
+        """Check if MinGW (gcc) is available"""
+        # First check configured path
+        if self.configured_mingw_path and self.configured_mingw_path.exists():
+            self.console.print(f"[green]✓ Using configured MinGW: {self.configured_mingw_path}[/green]")
+            return True
+
+        # Check if gcc is in PATH
+        if shutil.which("gcc"):
+            return True
+
+        # Check if mingw32-make is in PATH (indicates MinGW installation)
+        if is_windows() and shutil.which("mingw32-make"):
+            return True
+
+        # Check if gcc.exe is in tools/mingw/bin
+        if is_windows():
+            gcc_exe = self.mingw_path / "bin" / "gcc.exe"
+            if gcc_exe.exists():
+                return True
 
         return False
 
@@ -283,29 +310,188 @@ class ToolDownloader:
         self.console.print("  Option 3: Download from https://strawberryperl.com/")
 
         return False
-    
+
+    def download_mingw(self) -> bool:
+        """
+        Provide download instructions for MinGW (doesn't auto-download)
+
+        Returns:
+            False - MinGW requires manual installation
+        """
+        self.console.print("\n[bold cyan]MinGW Toolchain Setup[/bold cyan]")
+
+        if is_windows():
+            # Try winget first
+            if shutil.which("winget"):
+                self.console.print("\n[cyan]Installing MinGW-w64 via winget...[/cyan]")
+                try:
+                    result = subprocess.run(
+                        ["winget", "install", "MSYS2.MSYS2", "--accept-source-agreements"],
+                        capture_output=True,
+                        text=True,
+                        encoding='utf-8',
+                        errors='ignore'
+                    )
+                    if result.returncode == 0:
+                        self.console.print("[green]✓ MSYS2 installed successfully via winget[/green]")
+                        self.console.print(
+                            "[yellow]Note: Run 'pacman -S mingw-w64-x86_64-gcc' in MSYS2 to install GCC[/yellow]"
+                        )
+                        return True
+                except Exception as e:
+                    self.console.print(f"[yellow]Winget installation failed: {e}[/yellow]")
+
+            # Try chocolatey
+            if shutil.which("choco"):
+                self.console.print("\n[cyan]Installing MinGW via chocolatey...[/cyan]")
+                try:
+                    result = subprocess.run(
+                        ["choco", "install", "mingw", "-y"],
+                        capture_output=True,
+                        text=True,
+                        encoding='utf-8',
+                        errors='ignore'
+                    )
+                    if result.returncode == 0:
+                        self.console.print("[green]✓ MinGW installed successfully via chocolatey[/green]")
+                        return True
+                except Exception as e:
+                    self.console.print(f"[yellow]Chocolatey installation failed: {e}[/yellow]")
+
+            # Manual download instructions with mirror URLs
+            self.console.print("\n[yellow]Please install MinGW manually:[/yellow]")
+            self.console.print("  Option 1: winget install MSYS2.MSYS2")
+            self.console.print("  Option 2: choco install mingw")
+            self.console.print("  Option 3: Download from https://www.mingw-w64.org/downloads/")
+            self.console.print("  Mirror 1: https://sourceforge.net/projects/mingw-w64/files/")
+            self.console.print("  Mirror 2: https://github.com/niXman/mingw-builds-binaries/releases")
+        else:
+            self.console.print(
+                "[yellow]MinGW should be available via package manager on Linux/macOS[/yellow]"
+            )
+            self.console.print("Please install gcc using:")
+            self.console.print("  Ubuntu/Debian: sudo apt-get install gcc g++ make")
+            self.console.print("  macOS: xcode-select --install")
+
+        return False
+
+    def validate_toolchain(self) -> Tuple[bool, str]:
+        """
+        Validate that make, perl, and gcc are working
+
+        Returns:
+            Tuple of (success, message)
+        """
+        self.console.print("\n[bold cyan]Validating Toolchain[/bold cyan]")
+
+        errors = []
+
+        # Check make
+        make_cmd = self.get_make_command()
+        if make_cmd:
+            try:
+                result = subprocess.run(
+                    [make_cmd, "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode == 0:
+                    version_line = result.stdout.split('\n')[0] if result.stdout else "unknown"
+                    self.console.print(f"[green]✓ Make: {version_line}[/green]")
+                else:
+                    errors.append("make --version failed")
+            except Exception as e:
+                errors.append(f"make validation error: {e}")
+        else:
+            errors.append("make not found")
+
+        # Check perl
+        perl_cmd = self.get_perl_command()
+        if perl_cmd:
+            try:
+                result = subprocess.run(
+                    [perl_cmd, "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode == 0:
+                    # Extract version from output
+                    version_info = "available"
+                    for line in (result.stdout + result.stderr).split('\n')[:5]:
+                        if 'version' in line.lower() or 'v' in line.lower():
+                            version_info = line.strip()
+                            break
+                    self.console.print(f"[green]✓ Perl: {version_info}[/green]")
+                else:
+                    errors.append("perl --version failed")
+            except Exception as e:
+                errors.append(f"perl validation error: {e}")
+        else:
+            errors.append("perl not found")
+
+        # Check gcc
+        gcc_cmd = shutil.which("gcc")
+        if not gcc_cmd and is_windows():
+            gcc_exe = self.mingw_path / "bin" / "gcc.exe"
+            if gcc_exe.exists():
+                gcc_cmd = str(gcc_exe)
+
+        if gcc_cmd:
+            try:
+                result = subprocess.run(
+                    [gcc_cmd, "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode == 0:
+                    version_line = result.stdout.split('\n')[0] if result.stdout else "unknown"
+                    self.console.print(f"[green]✓ GCC: {version_line}[/green]")
+                else:
+                    errors.append("gcc --version failed")
+            except Exception as e:
+                errors.append(f"gcc validation error: {e}")
+        else:
+            errors.append("gcc not found")
+
+        if errors:
+            error_msg = "; ".join(errors)
+            self.console.print(f"\n[red]✗ Toolchain validation failed: {error_msg}[/red]")
+            return False, error_msg
+
+        self.console.print("\n[green]✓ All toolchain components validated successfully[/green]")
+        return True, "All tools validated"
+
     def ensure_tools_available(self) -> Tuple[bool, bool]:
         """
         Ensure all required tools are available
-        
+
         Returns:
-            Tuple of (make_available, perl_available)
+            Tuple of (all_tools_ok, mingw_ok)
         """
-        make_ok, perl_ok = self.check_existing_tools()
-        
+        make_ok, perl_ok, mingw_ok = self.check_existing_tools()
+
         if make_ok and perl_ok:
             self.console.print("\n[green]✓ All required tools are available[/green]")
-            return True, True
-        
+            if mingw_ok:
+                self.console.print("[green]✓ MinGW toolchain is available[/green]")
+            return True, mingw_ok
+
         self.console.print("\n[yellow]Some tools are missing. Downloading...[/yellow]")
-        
+
         if not make_ok:
             make_ok = self.download_make()
-        
+
         if not perl_ok:
             perl_ok = self.download_perl()
-        
-        return make_ok, perl_ok
+
+        if not mingw_ok:
+            mingw_ok = self.download_mingw()
+
+        all_tools_ok = make_ok and perl_ok
+        return all_tools_ok, mingw_ok
     
     def get_make_command(self) -> Optional[str]:
         """Get the make command to use"""
