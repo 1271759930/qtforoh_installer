@@ -127,9 +127,12 @@ def run_command(
                 line = _decode_process_output(raw_line)
                 stdout_lines.append(line)
                 if logger:
+                    # Logger with StreamHandler will print to console
                     logger.info(line.rstrip())
-                print(line, end="")
-            
+                else:
+                    # No logger - print directly
+                    print(line, end="")
+
             process.wait()
             return process.returncode, "".join(stdout_lines), ""
     
