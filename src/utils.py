@@ -250,3 +250,163 @@ def clean_directory(path: Path) -> bool:
         return True
     except Exception:
         return False
+
+
+def get_git_branch(repo_path: Path) -> Optional[str]:
+    """
+    Get the current Git branch name for a repository.
+
+    Args:
+        repo_path: Path to the Git repository
+
+    Returns:
+        Branch name or None if not a Git repo or on detached HEAD
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            branch = result.stdout.strip()
+            # "HEAD" means detached HEAD state
+            if branch and branch != "HEAD":
+                return branch
+        return None
+    except Exception:
+        return None
+
+
+def parse_qt_version_from_branch(branch_name: str) -> Optional[str]:
+    """
+    Parse Qt version from a HarmonyOS branch name.
+
+    Branch name formats:
+        - tqtc/harmonyos-X.XX.XX (e.g., tqtc/harmonyos-5.15.16)
+        - tqtc/lts-X.XX.XX-harmonyos (e.g., tqtc/lts-5.12.12-harmonyos)
+        - harmonyos-X.XX.XX
+
+    Args:
+        branch_name: Git branch name
+
+    Returns:
+        Qt version string or None if not parseable
+    """
+    import re
+
+    # Match pattern: harmonyos-X.XX.XX
+    match = re.search(r'harmonyos-(\d+\.\d+(?:\.\d+)?)', branch_name)
+    if match:
+        return match.group(1)
+
+    # Match pattern: lts-X.XX.XX-harmonyos
+    match = re.search(r'lts-(\d+\.\d+(?:\.\d+)?)-harmonyos', branch_name)
+    if match:
+        return match.group(1)
+
+    return None
+
+
+def detect_qt_version(qt_source_path: Path) -> Tuple[str, str]:
+    """
+    Detect Qt version from source directory.
+
+    First tries to parse from Git branch name, then falls back to
+    checking qtbase/.qmake.conf or defaults to 5.15.16.
+
+    Args:
+        qt_source_path: Path to Qt source directory
+
+    Returns:
+        Tuple of (version_string, detection_method)
+    """
+    # Method 1: Try Git branch
+    branch = get_git_branch(qt_source_path)
+    if branch:
+        version = parse_qt_version_from_branch(branch)
+        if version:
+            return version, f"Git branch: {branch}"
+
+    # Method 2: Try qtbase/.qmake.conf
+    qmake_conf = qt_source_path / "qtbase" / ".qmake.conf"
+    if qmake_conf.exists():
+        try:
+            content = qmake_conf.read_text(encoding="utf-8")
+            import re
+            match = re.search(r'MODULE_VERSION\s*=\s*(\S+)', content)
+            if match:
+                return match.group(1), "qtbase/.qmake.conf"
+        except Exception:
+            pass
+
+    # Method 3: Default
+    return "5.15.16", "default (no version detected)"
+
+
+def get_qt_version_config(version: str) -> dict:
+    """
+    Get version-specific configuration for Qt HarmonyOS build.
+
+    Different Qt versions may have different:
+    - Skip module lists
+    - Configure parameters
+    - Required tool versions
+
+    Args:
+        version: Qt version string (e.g., "5.12.12", "5.15.16")
+
+    Returns:
+        Dictionary with version-specific configuration
+    """
+    # Parse major.minor version
+    parts = version.split(".")
+    major = int(parts[0]) if parts else 5
+    minor = int(parts[1]) if len(parts) > 1 else 15
+
+    # Common skip modules for all versions (only modules that exist in Qt 5.12-5.15)
+    common_skip = [
+        "qt3d", "qtactiveqt", "qtandroidextras",
+        "qtconnectivity", "qtdatavis3d", "qtdoc",
+        "qtgraphicaleffects", "qtlocation",
+        "qtmacextras", "qtnetworkauth",
+        "qtremoteobjects", "qtscript",
+        "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
+        "qtspeech",
+        "qttranslations",
+        "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
+        "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
+        "qtx11extras", "doc",
+        "qtcoap", "qtmqtt",  # These modules have compilation issues with strict warnings
+    ]
+
+    # Version-specific configurations
+    if major == 5 and minor == 12:
+        # Qt 5.12 specific
+        return {
+            "skip_modules": common_skip,
+            "c++std": "c++14",
+            "opengl": ["es2", "opengles3"],
+            "extra_configure_options": [],
+            "notes": "Qt 5.12 LTS - uses -ohos-arch parameter"
+        }
+    elif major == 5 and minor == 15:
+        # Qt 5.15 specific
+        return {
+            "skip_modules": common_skip + ["qttools"],  # qttools may have issues on 5.15
+            "c++std": "c++14",
+            "opengl": ["es2", "opengles3"],
+            "extra_configure_options": [],
+            "notes": "Qt 5.15 LTS - uses -device-option OHOS_ARCH parameter"
+        }
+    else:
+        # Default configuration for unknown versions
+        return {
+            "skip_modules": common_skip,
+            "c++std": "c++14",
+            "opengl": ["es2", "opengles3"],
+            "extra_configure_options": [],
+            "notes": f"Unknown Qt version {version}, using default config"
+        }
