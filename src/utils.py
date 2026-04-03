@@ -379,7 +379,6 @@ def get_qt_version_config(version: str) -> dict:
         "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
         "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
         "qtx11extras", "doc",
-        "qtcoap", "qtmqtt",  # These modules have compilation issues with strict warnings
     ]
 
     # Version-specific configurations
@@ -393,13 +392,22 @@ def get_qt_version_config(version: str) -> dict:
             "notes": "Qt 5.12 LTS - uses -ohos-arch parameter"
         }
     elif major == 5 and minor == 15:
-        # Qt 5.15 specific
+        # Qt 5.15 specific - use recommended skip list for HarmonyOS
+        qt15_skip = [
+            "doc", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
+            "qtdoc", "qtfeedback", "qtgamepad", "qtlocation",
+            "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
+            "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
+            "qtsystems", "qttools", "qtwayland", "qtwebchannel",
+            "qtwebengine", "qtwebglplugin", "qtwinextras", "qtx11extras",
+            "qtopcua", "qtknx", "qtconnectivity",
+        ]
         return {
-            "skip_modules": common_skip + ["qttools"],  # qttools may have issues on 5.15
+            "skip_modules": qt15_skip,
             "c++std": "c++14",
             "opengl": ["es2", "opengles3"],
             "extra_configure_options": [],
-            "notes": "Qt 5.15 LTS - uses -device-option OHOS_ARCH parameter"
+            "notes": "Qt 5.15 LTS - recommended skip modules for HarmonyOS"
         }
     else:
         # Default configuration for unknown versions
