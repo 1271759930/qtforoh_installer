@@ -11,7 +11,7 @@ from rich.prompt import Prompt, Confirm
 from rich.text import Text
 
 from .config import InstallConfig
-from .utils import validate_path, is_windows
+from .utils import validate_path, is_windows, detect_qt_version, get_qt_version_config
 
 
 class InteractivePrompt:
@@ -333,16 +333,16 @@ This tool will help you install Qt for HarmonyOS by:
         """Display configuration and ask for confirmation"""
         self.console.print("\n" + "=" * 60)
         self.console.print("[bold cyan]Configuration Summary[/bold cyan]\n")
-        
+
         table = Table(show_header=False, box=None)
         table.add_column("Property", style="cyan")
         table.add_column("Value", style="green")
-        
+
         table.add_row("Qt Source Path", str(config.qt_source_path))
         table.add_row("HarmonyOS SDK Path", str(config.harmony_sdk_path))
         table.add_row("Install Path", str(config.install_path))
         table.add_row("Architecture", config.architecture)
-        table.add_row("Qt Version", config.qt_version)
+        table.add_row("Qt Version", f"{config.qt_version} ({config.version_source})")
         table.add_row("Build Type", config.build_type)
         table.add_row("Parallel Jobs", str(config.parallel_jobs))
 
@@ -353,29 +353,76 @@ This tool will help you install Qt for HarmonyOS by:
             table.add_row("Perl Path", str(config.perl_path))
 
         self.console.print(table)
-        
+
+        # Show version-specific notes
+        version_config = config.get_version_config()
+        if version_config.get("notes"):
+            self.console.print(f"\n[yellow]Note: {version_config['notes']}[/yellow]")
+
         # Use Rich Confirm
         confirm = Confirm.ask(
             "\n[bold]Proceed with installation?[/bold]",
             default=True
         )
-        
+
         return confirm
     
     def collect_configuration(self) -> InstallConfig:
         """Collect all configuration from user"""
         self.show_welcome()
-        
+
         # Prompt for paths
         qt_source_path = self.prompt_qt_source_path()
         harmony_sdk_path = self.prompt_harmony_sdk_path()
         install_path = self.prompt_install_path()
-        
+
+        # Auto-detect Qt version from source
+        self.console.print("\n[bold cyan]Detecting Qt version...[/bold cyan]")
+        qt_version, version_source = detect_qt_version(qt_source_path)
+        self.console.print(f"[green]✓ Detected Qt version: {qt_version}[/green]")
+        self.console.print(f"[dim]  Source: {version_source}[/dim]")
+
+        # Get version-specific configuration
+        version_config = get_qt_version_config(qt_version)
+        if version_config.get("notes"):
+            self.console.print(f"[yellow]  Note: {version_config['notes']}[/yellow]")
+
+        # Ask user to confirm or override version
+        use_detected = Confirm.ask(
+            f"\n[bold]Use detected version {qt_version}?[/bold]",
+            default=True
+        )
+
+        if not use_detected:
+            # Allow manual version input
+            self.console.print("\n[bold]Available Qt versions for HarmonyOS:[/bold]")
+            self.console.print("  [cyan]1[/cyan]. 5.15.16 (recommended)")
+            self.console.print("  [cyan]2[/cyan]. 5.12.12 (LTS)")
+            self.console.print("  [cyan]3[/cyan]. Custom version")
+
+            choice = Prompt.ask(
+                "\n[bold green]Select version[/bold green]",
+                choices=["1", "2", "3"],
+                default="1"
+            )
+
+            if choice == "1":
+                qt_version = "5.15.16"
+            elif choice == "2":
+                qt_version = "5.12.12"
+            else:
+                qt_version = Prompt.ask(
+                    "[bold green]Enter Qt version[/bold green]",
+                    default=qt_version
+                )
+
+            version_source = "manual selection"
+
         # Prompt for build options
         architecture = self.prompt_architecture()
         build_type = self.prompt_build_type()
         parallel_jobs = self.prompt_parallel_jobs()
-        
+
         # Prompt for tool paths
         make_path, perl_path = self.prompt_tool_paths()
 
@@ -385,10 +432,12 @@ This tool will help you install Qt for HarmonyOS by:
             harmony_sdk_path=harmony_sdk_path,
             install_path=install_path,
             architecture=architecture,
+            qt_version=qt_version,
             build_type=build_type,
             parallel_jobs=parallel_jobs,
             make_path=make_path,
-            perl_path=perl_path
+            perl_path=perl_path,
+            version_source=version_source
         )
 
         # Confirm configuration

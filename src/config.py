@@ -4,9 +4,11 @@ Configuration management module
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import yaml
 import json
+
+from .utils import get_qt_version_config
 
 
 @dataclass
@@ -19,23 +21,21 @@ class InstallConfig:
     qt_version: str = "5.15.16"
     build_type: str = "release"
     parallel_jobs: int = 8
-    skip_modules: list = field(default_factory=lambda: [
-        "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-        "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
-        "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
-        "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
-        "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
-        "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
-        "qtspeech", "qtsystems", "qttools", "qttranslations",
-        "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
-        "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
-        "qtx11extras", "doc"
-    ])
+    skip_modules: List[str] = field(default_factory=list)
     # 工具路径配置（可选）
     # make_path应指向mingw32-make，它是MinGW工具链的一部分
     # MinGW工具链包含gcc、g++、mingw32-make等，配置make路径即可
     make_path: Optional[Path] = None
     perl_path: Optional[Path] = None
+    # 版本检测来源
+    version_source: str = "default"
+
+    def __post_init__(self):
+        """Initialize version-specific settings after construction."""
+        if not self.skip_modules:
+            # Get version-specific skip modules
+            version_config = get_qt_version_config(self.qt_version)
+            self.skip_modules = version_config["skip_modules"].copy()
 
     def to_dict(self) -> dict:
         """Convert to dictionary"""
@@ -50,6 +50,7 @@ class InstallConfig:
             "skip_modules": self.skip_modules,
             "make_path": str(self.make_path) if self.make_path else None,
             "perl_path": str(self.perl_path) if self.perl_path else None,
+            "version_source": self.version_source,
         }
 
     @classmethod
@@ -58,7 +59,7 @@ class InstallConfig:
         make_path = data.get("make_path")
         perl_path = data.get("perl_path")
 
-        return cls(
+        config = cls(
             qt_source_path=Path(data["qt_source_path"]),
             harmony_sdk_path=Path(data["harmony_sdk_path"]),
             install_path=Path(data["install_path"]),
@@ -69,7 +70,13 @@ class InstallConfig:
             skip_modules=data.get("skip_modules", []),
             make_path=Path(make_path) if make_path else None,
             perl_path=Path(perl_path) if perl_path else None,
+            version_source=data.get("version_source", "default"),
         )
+        return config
+
+    def get_version_config(self) -> dict:
+        """Get version-specific configuration."""
+        return get_qt_version_config(self.qt_version)
 
 
 @dataclass
