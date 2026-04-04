@@ -40,27 +40,67 @@ python -m pip install -e .                   # 开发模式安装
 ```bash
 black src/       # 格式化
 flake8 src/      # 代码检查
-pytest tests/    # 运行测试（如有）
-```
-
-### 独立批处理脚本
-```bash
-configure-qt.bat   # Windows 交互式菜单构建脚本（可独立使用）
+pytest tests/    # 运行测试
 ```
 
 ## Architecture
 
-模块化架构，安装流程由 `installer.py` 协调各模块完成：
+项目采用模块化架构，各模块职责分明：
+
+```
+src/
+├── cli.py              # CLI 入口，Click 命令定义
+├── core/               # 核心流程控制
+│   ├── installer.py    # 流程编排器，协调各模块
+│   ├── steps.py        # 安装步骤定义（可配置）
+│   └── executor.py     # 步骤执行器
+├── config/             # 配置管理
+│   ├── schema.py       # 数据类（纯数据）
+│   ├── loader.py       # 配置加载/保存
+│   └── defaults.py     # 默认值和版本配置
+├── ui/                 # 用户界面
+│   ├── display.py      # 输出展示（Console 封装）
+│   └── prompts.py      # 交互式输入收集
+├── builder/            # 构建模块
+│   ├── qt_builder.py   # Qt 编译执行
+│   ├── env_setup.py    # 环境变量设置
+│   └── script_gen.py   # 构建脚本生成
+├── tools/              # 工具管理
+│   └── downloader.py   # 工具下载（make/perl）
+└── utils.py            # 工具函数
+```
+
+### 模块职责
 
 | 模块 | 职责 |
 |------|------|
-| `cli.py` | CLI 入口，Click 命令定义 (`install`, `check`, `config`, `guide`, `clean`) |
-| `installer.py` | 流程控制器，按步骤协调：初始化 → 前置检查 → 配置收集 → 工具设置 → 环境设置 → 编译 |
-| `interactive.py` | 用户交互输入收集（路径、架构、构建类型、并行任务数） |
-| `config.py` | YAML 配置管理，`InstallConfig` 和 `ToolConfig` 数据类 |
-| `environment.py` | 环境变量设置（NATIVE_OHOS_SDK, LLVM_INSTALL_DIR, PATH 等），Windows 下会重置 PATH 避免 MSVC 污染 |
-| `builder.py` | Qt 编译执行，**Windows 下生成批处理脚本避免环境继承问题** |
-| `downloader.py` | 工具下载（make/perl），支持 winget/chocolatey 自动安装 |
+| `cli.py` | CLI 入口，命令定义和路由 |
+| `core/installer.py` | 流程编排，协调各模块完成安装 |
+| `core/steps.py` | 安装步骤定义，支持自定义步骤列表 |
+| `config/schema.py` | 配置数据类，纯数据容器 |
+| `config/defaults.py` | 版本特定的默认配置 |
+| `ui/prompts.py` | 交互式输入收集 |
+| `ui/display.py` | 输出展示，状态显示 |
+| `builder/qt_builder.py` | Qt 编译执行逻辑 |
+| `builder/env_setup.py` | 环境变量设置 |
+| `tools/downloader.py` | 工具下载和安装 |
+
+### 扩展安装流程
+
+要修改或扩展安装流程，只需修改 `core/steps.py` 中的步骤列表：
+
+```python
+# 自定义步骤
+from src.core.steps import InstallStep, DEFAULT_STEPS, create_custom_steps
+
+# 添加新步骤
+my_steps = DEFAULT_STEPS + [
+    InstallStep("custom", "自定义步骤", my_handler_function),
+]
+
+# 或跳过某些步骤
+my_steps = create_custom_steps(skip_steps=["check"])
+```
 
 ## Key Build Details
 
@@ -73,7 +113,7 @@ Windows 构建使用生成的批处理脚本 (`build_qt_ohos.bat`) 而非直接 
 
 ### Configure 关键参数
 
-`builder.py` 生成的 configure 命令关键选项：
+`builder/qt_builder.py` 生成的 configure 命令关键选项：
 - `-platform win32-g++`: 使用 MinGW 构建宿主工具
 - `-xplatform ohos-clang`: 交叉编译到 HarmonyOS
 - `-device-option OHOS_ARCH=<arch>`: 目标架构
@@ -82,7 +122,7 @@ Windows 构建使用生成的批处理脚本 (`build_qt_ohos.bat`) 而非直接 
 
 ### 环境变量
 
-核心环境变量（由 `environment.py` 设置）：
+核心环境变量（由 `builder/env_setup.py` 设置）：
 - `NATIVE_OHOS_SDK`: HarmonyOS Native SDK 路径
 - `OHOS_SDK_SYSROOT`: SDK sysroot
 - `LLVM_INSTALL_DIR`: LLVM 编译器路径
@@ -97,11 +137,9 @@ Windows 构建使用生成的批处理脚本 (`build_qt_ohos.bat`) 而非直接 
 - 并行任务数
 - 可选的工具路径配置 (make_path, perl_path)
 
-工具路径配置说明：`make_path` 应指向包含 `mingw32-make.exe` 的 MinGW 目录，MinGW 同时提供 `gcc/g++` 用于 host tools 构建。
-
 ## Skipping Modules
 
-默认跳过的 Qt 模块列表在 `config.py` 的 `InstallConfig.skip_modules` 中定义，包括 qt3d、qtwebengine 等不需要的模块。
+默认跳过的 Qt 模块列表在 `config/defaults.py` 中定义，按 Qt 版本区分。
 
 ## Logs
 

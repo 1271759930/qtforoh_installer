@@ -15,11 +15,11 @@ if sys.platform == "win32":
 
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config import ToolConfig
-from src.downloader import ToolDownloader
+from src.tools import ToolDownloader
 from rich.console import Console
 
 def test_perl_url():
@@ -51,9 +51,10 @@ def test_make_install():
     downloader = ToolDownloader(tools_dir, config)
 
     # Check if make already exists
-    make_ok, perl_ok = downloader.check_existing_tools()
+    make_ok, perl_ok, mingw_ok = downloader.check_existing_tools()
     console.print(f"Make available: {make_ok}")
     console.print(f"Perl available: {perl_ok}")
+    console.print(f"MinGW available: {mingw_ok}")
 
     if not make_ok:
         console.print("\n[yellow]Attempting to install make...[/yellow]")
@@ -72,7 +73,7 @@ def test_perl_download():
     downloader = ToolDownloader(tools_dir, config)
 
     # Check if perl already exists
-    make_ok, perl_ok = downloader.check_existing_tools()
+    make_ok, perl_ok, mingw_ok = downloader.check_existing_tools()
 
     if not perl_ok:
         console.print("\n[yellow]Attempting to download Perl...[/yellow]")

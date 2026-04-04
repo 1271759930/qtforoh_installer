@@ -1,27 +1,30 @@
 """
-CLI entry point
+CLI entry point - Command definitions and dispatch
 """
 
 import sys
-import os
 from pathlib import Path
 import click
 from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 # Fix encoding for Windows PowerShell
 if sys.platform == "win32":
-    # Set UTF-8 encoding for stdout/stderr
     if sys.stdout.encoding != "utf-8":
         sys.stdout.reconfigure(encoding="utf-8")
     if sys.stderr.encoding != "utf-8":
         sys.stderr.reconfigure(encoding="utf-8")
 
-from .installer import QtHarmonyInstaller
+# Import from new module structure
+from .core import QtHarmonyInstaller
 from .config import ConfigManager
-from .interactive import InteractivePrompt
+from .ui.display import Display
+from .utils import check_python_version
 
 
 console = Console(force_terminal=True)
+display = Display()
 
 
 @click.group()
@@ -29,7 +32,7 @@ console = Console(force_terminal=True)
 def cli():
     """
     Qt for HarmonyOS Installation CLI Tool
-    
+
     This tool helps you install Qt for HarmonyOS by:
     - Collecting necessary paths and configurations
     - Downloading required tools (make, perl)
@@ -41,15 +44,13 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--workspace",
-    "-w",
+    "--workspace", "-w",
     type=click.Path(exists=False),
     default=".",
     help="Workspace directory for installation"
 )
 @click.option(
-    "--yes",
-    "-y",
+    "--yes", "-y",
     is_flag=True,
     default=False,
     help="Skip confirmation prompts (use existing config)"
@@ -81,8 +82,7 @@ def install(workspace: str, yes: bool):
 
 @cli.command()
 @click.option(
-    "--workspace",
-    "-w",
+    "--workspace", "-w",
     type=click.Path(exists=True),
     default=".",
     help="Workspace directory"
@@ -90,30 +90,29 @@ def install(workspace: str, yes: bool):
 def config(workspace: str):
     """
     View or modify configuration
-    
+
     Shows current configuration and allows modification.
     """
     workspace_path = Path(workspace).resolve()
     config_manager = ConfigManager(workspace_path / "config.yaml")
-    
+
     if config_manager.load_config():
         console.print("\n[bold cyan]Current Configuration:[/bold cyan]\n")
-        
-        from rich.table import Table
+
         table = Table(show_header=True, header_style="bold cyan")
         table.add_column("Property", style="cyan")
         table.add_column("Value", style="green")
-        
-        config = config_manager.install_config
-        if config:
-            table.add_row("Qt Source Path", str(config.qt_source_path))
-            table.add_row("HarmonyOS SDK Path", str(config.harmony_sdk_path))
-            table.add_row("Install Path", str(config.install_path))
-            table.add_row("Architecture", config.architecture)
-            table.add_row("Qt Version", config.qt_version)
-            table.add_row("Build Type", config.build_type)
-            table.add_row("Parallel Jobs", str(config.parallel_jobs))
-            
+
+        cfg = config_manager.install_config
+        if cfg:
+            table.add_row("Qt Source Path", str(cfg.qt_source_path))
+            table.add_row("HarmonyOS SDK Path", str(cfg.harmony_sdk_path))
+            table.add_row("Install Path", str(cfg.install_path))
+            table.add_row("Architecture", cfg.architecture)
+            table.add_row("Qt Version", cfg.qt_version)
+            table.add_row("Build Type", cfg.build_type)
+            table.add_row("Parallel Jobs", str(cfg.parallel_jobs))
+
             console.print(table)
     else:
         console.print("\n[yellow]No configuration found[/yellow]")
@@ -122,8 +121,7 @@ def config(workspace: str):
 
 @cli.command()
 @click.option(
-    "--workspace",
-    "-w",
+    "--workspace", "-w",
     type=click.Path(exists=True),
     default=".",
     help="Workspace directory"
@@ -131,66 +129,65 @@ def config(workspace: str):
 def check(workspace: str):
     """
     Check prerequisites and environment
-    
+
     Validates that all required tools and paths are available.
     """
     workspace_path = Path(workspace).resolve()
     config_manager = ConfigManager(workspace_path / "config.yaml")
-    
+
     console.print("\n[bold cyan]Checking Prerequisites...[/bold cyan]\n")
-    
+
     # Check Python version
-    from .utils import check_python_version
     is_valid, version = check_python_version()
     if is_valid:
         console.print(f"[green]✓ Python: {version}[/green]")
     else:
         console.print(f"[red]✗ Python: {version}[/red]")
-    
+
     # Check Git
     import shutil
     if shutil.which("git"):
         console.print("[green]✓ Git is available[/green]")
     else:
         console.print("[red]✗ Git is not installed[/red]")
-    
+
     # Check Make
     if shutil.which("make") or shutil.which("mingw32-make"):
         console.print("[green]✓ Make is available[/green]")
     else:
         console.print("[yellow]⚠ Make is not installed[/yellow]")
-    
+
     # Check Perl
     if shutil.which("perl"):
         console.print("[green]✓ Perl is available[/green]")
     else:
         console.print("[yellow]⚠ Perl is not installed[/yellow]")
-    
+
     # Check configuration
     if config_manager.load_config():
         console.print("\n[bold cyan]Checking Configuration...[/bold cyan]\n")
-        
-        config = config_manager.install_config
-        if config:
+
+        cfg = config_manager.install_config
+        if cfg:
             # Check Qt source
-            if config.qt_source_path.exists():
-                console.print(f"[green]✓ Qt source: {config.qt_source_path}[/green]")
+            if cfg.qt_source_path.exists():
+                console.print(f"[green]✓ Qt source: {cfg.qt_source_path}[/green]")
             else:
-                console.print(f"[red]✗ Qt source not found: {config.qt_source_path}[/red]")
-            
+                console.print(f"[red]✗ Qt source not found: {cfg.qt_source_path}[/red]")
+
             # Check HarmonyOS SDK
-            if config.harmony_sdk_path.exists():
-                console.print(f"[green]✓ HarmonyOS SDK: {config.harmony_sdk_path}[/green]")
-                native_path = config.harmony_sdk_path / "native"
+            if cfg.harmony_sdk_path.exists():
+                console.print(f"[green]✓ HarmonyOS SDK: {cfg.harmony_sdk_path}[/green]")
+                native_path = cfg.harmony_sdk_path / "native"
                 if native_path.exists():
                     console.print(f"[green]  ✓ Native SDK: {native_path}[/green]")
                 else:
                     console.print(f"[red]  ✗ Native SDK not found[/red]")
             else:
-                console.print(f"[red]✗ HarmonyOS SDK not found: {config.harmony_sdk_path}[/red]")
+                console.print(f"[red]✗ HarmonyOS SDK not found: {cfg.harmony_sdk_path}[/red]")
     else:
         console.print("\n[yellow]No configuration found[/yellow]")
-    
+
     console.print("\n[bold cyan]Check Complete[/bold cyan]")
 
 
@@ -198,11 +195,9 @@ def check(workspace: str):
 def guide():
     """
     Show installation guide and documentation
-    
+
     Displays helpful information about the installation process.
     """
-    from rich.panel import Panel
-    
     guide_text = """
 [bold cyan]Qt for HarmonyOS Installation Guide[/bold cyan]
 
@@ -240,14 +235,13 @@ def guide():
   • Check logs in workspace/logs/ directory
   • Run 'qtohos-installer check' to verify prerequisites
     """
-    
+
     console.print(Panel(guide_text, border_style="cyan"))
 
 
 @cli.command()
 @click.option(
-    "--workspace",
-    "-w",
+    "--workspace", "-w",
     type=click.Path(exists=True),
     default=".",
     help="Workspace directory"
@@ -255,24 +249,24 @@ def guide():
 def clean(workspace: str):
     """
     Clean build artifacts and temporary files
-    
+
     Removes build directory and temporary files, but keeps configuration.
     """
     workspace_path = Path(workspace).resolve()
     config_manager = ConfigManager(workspace_path / "config.yaml")
-    
+
     if not config_manager.load_config():
         console.print("\n[yellow]No configuration found[/yellow]")
         return
-    
-    config = config_manager.install_config
-    if not config:
+
+    cfg = config_manager.install_config
+    if not cfg:
         return
-    
+
     console.print("\n[bold cyan]Cleaning build artifacts...[/bold cyan]")
-    
+
     # Clean build directory
-    build_dir = config.qt_source_path / f"build_{config.architecture}"
+    build_dir = cfg.qt_source_path / f"build_{cfg.architecture}"
     if build_dir.exists():
         console.print(f"Removing: {build_dir}")
         import shutil
@@ -281,7 +275,7 @@ def clean(workspace: str):
             console.print("[green]✓ Build directory removed[/green]")
         except Exception as e:
             console.print(f"[red]✗ Failed to remove build directory: {e}[/red]")
-    
+
     # Clean logs
     logs_dir = workspace_path / "logs"
     if logs_dir.exists():
@@ -291,7 +285,7 @@ def clean(workspace: str):
             console.print("[green]✓ Logs directory removed[/green]")
         except Exception as e:
             console.print(f"[red]✗ Failed to remove logs directory: {e}[/red]")
-    
+
     console.print("\n[bold green]✓ Clean complete[/bold green]")
     console.print("[yellow]Note: Configuration preserved[/yellow]")
 
