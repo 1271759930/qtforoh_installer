@@ -34,8 +34,9 @@ ENV/
 *.swo
 *~
 
-# Tools
-tools/
+# Tools (root directory only)
+/tools/
+src/tools/__pycache__/
 *.zip
 *.tar.gz
 *.7z
