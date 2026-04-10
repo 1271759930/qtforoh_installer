@@ -368,14 +368,13 @@ def get_qt_version_config(version: str) -> dict:
 
     # Common skip modules for all versions (only modules that exist in Qt 5.12-5.15)
     common_skip = [
-        "qt3d", "qtactiveqt", "qtandroidextras",
-        "qtconnectivity", "qtdatavis3d", "qtdoc",
-        "qtgraphicaleffects", "qtlocation",
-        "qtmacextras", "qtnetworkauth",
-        "qtremoteobjects", "qtscript",
+        "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
+        "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
+        "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
+        "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
+        "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
         "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
-        "qtspeech",
-        "qttranslations",
+        "qtspeech", "qtsystems", "qttools", "qttranslations",
         "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
         "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
         "qtx11extras", "doc",
@@ -388,26 +387,29 @@ def get_qt_version_config(version: str) -> dict:
             "skip_modules": common_skip,
             "c++std": "c++14",
             "opengl": ["es2", "opengles3"],
-            "extra_configure_options": [],
-            "notes": "Qt 5.12 LTS - uses -ohos-arch parameter"
+            "extra_configure_options": ["-no-dbus"],
+            "notes": "Qt 5.12 LTS - uses -ohos-arch parameter, dbus disabled for HarmonyOS"
         }
     elif major == 5 and minor == 15:
         # Qt 5.15 specific - use recommended skip list for HarmonyOS
         qt15_skip = [
-            "doc", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-            "qtdoc", "qtfeedback", "qtgamepad", "qtlocation",
+            "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
+            "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
+            "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
             "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
             "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
-            "qtsystems", "qttools", "qtwayland", "qtwebchannel",
-            "qtwebengine", "qtwebglplugin", "qtwinextras", "qtx11extras",
-            "qtopcua", "qtknx", "qtconnectivity",
+            "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
+            "qtspeech", "qtsystems", "qttools", "qttranslations",
+            "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
+            "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
+            "qtx11extras", "qtopcua", "qtknx", "doc",
         ]
         return {
             "skip_modules": qt15_skip,
             "c++std": "c++14",
             "opengl": ["es2", "opengles3"],
-            "extra_configure_options": [],
-            "notes": "Qt 5.15 LTS - recommended skip modules for HarmonyOS"
+            "extra_configure_options": ["-no-dbus"],
+            "notes": "Qt 5.15 LTS - recommended skip modules for HarmonyOS, dbus disabled"
         }
     else:
         # Default configuration for unknown versions
@@ -415,6 +417,6 @@ def get_qt_version_config(version: str) -> dict:
             "skip_modules": common_skip,
             "c++std": "c++14",
             "opengl": ["es2", "opengles3"],
-            "extra_configure_options": [],
-            "notes": f"Unknown Qt version {version}, using default config"
+            "extra_configure_options": ["-no-dbus"],
+            "notes": f"Unknown Qt version {version}, using default config, dbus disabled"
         }

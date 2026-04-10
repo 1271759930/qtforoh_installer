@@ -281,8 +281,9 @@ class QtBuilder:
             "-extprefix", str(self.config.install_path),
         ])
 
-        # Skip modules
-        for module in self.config.skip_modules:
+        # Skip modules - use version default if not specified
+        skip_modules_list = self.config.skip_modules if self.config.skip_modules else version_config.get("skip_modules", [])
+        for module in skip_modules_list:
             cmd.extend(["-skip", module])
 
         # Extra options

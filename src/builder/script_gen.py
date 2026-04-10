@@ -39,11 +39,17 @@ def generate_build_script(
 
     # Build configure arguments
     device_prefix = f"/data/storage/el1/bundle/libs/{config.architecture.split('-')[0]}"
-    skip_modules = " ".join([f"-skip {m}" for m in config.skip_modules])
 
-    # Get version-specific configuration
+    # Get version-specific configuration for skip_modules
     from ..config.defaults import get_qt_version_config
     version_config = get_qt_version_config(config.qt_version)
+    skip_modules_list = config.skip_modules if config.skip_modules else version_config.get("skip_modules", [])
+    skip_modules = " ".join([f"-skip {m}" for m in skip_modules_list])
+
+    # Get extra configure options
+    extra_options = version_config.get("extra_configure_options", [])
+    extra_args = " ".join(extra_options)
+
     cxx_std = version_config.get("c++std", "c++14")
 
     # Build type option
@@ -127,7 +133,7 @@ echo.
 
 pushd "%BUILD_DIR%"
 
-call "{configure_script}" -v -platform win32-clang-g++ -xplatform ohos-clang -device-option CROSS_COMPILE=%LLVM_INSTALL_DIR%\\bin -prefix "{device_prefix}" -extprefix "{config.install_path}" -opensource -confirm-license {build_type_opt} -no-use-gold-linker {skip_modules} -nomake tests -nomake examples -no-gcc-sysroot -c++std {cxx_std} -ohos-arch {config.architecture}
+call "{configure_script}" -v -platform win32-clang-g++ -xplatform ohos-clang -device-option CROSS_COMPILE=%LLVM_INSTALL_DIR%\\bin -prefix "{device_prefix}" -extprefix "{config.install_path}" -opensource -confirm-license {build_type_opt} -no-use-gold-linker {skip_modules} {extra_args} -nomake tests -nomake examples -no-gcc-sysroot -c++std {cxx_std} -ohos-arch {config.architecture}
 
 if %errorlevel% neq 0 echo.
 if %errorlevel% neq 0 echo [ERROR] Configure failed with code %errorlevel%

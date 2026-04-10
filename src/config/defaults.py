@@ -5,16 +5,15 @@ Default configurations and version-specific settings
 from typing import List, Dict, Any
 
 
-# Common skip modules for all Qt 5.x versions
+# Common skip modules for Qt 5.12 HarmonyOS build
 COMMON_SKIP_MODULES: List[str] = [
-    "qt3d", "qtactiveqt", "qtandroidextras",
-    "qtconnectivity", "qtdatavis3d", "qtdoc",
-    "qtgraphicaleffects", "qtlocation",
-    "qtmacextras", "qtnetworkauth",
-    "qtremoteobjects", "qtscript",
+    "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
+    "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
+    "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
+    "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
+    "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
     "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
-    "qtspeech",
-    "qttranslations",
+    "qtspeech", "qtsystems", "qttools", "qttranslations",
     "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
     "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
     "qtx11extras", "doc",
@@ -22,13 +21,16 @@ COMMON_SKIP_MODULES: List[str] = [
 
 # Qt 5.15 recommended skip modules for HarmonyOS
 QT15_SKIP_MODULES: List[str] = [
-    "doc", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-    "qtdoc", "qtfeedback", "qtgamepad", "qtlocation",
+    "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
+    "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
+    "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
     "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
     "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
-    "qtsystems", "qttools", "qtwayland", "qtwebchannel",
-    "qtwebengine", "qtwebglplugin", "qtwinextras", "qtx11extras",
-    "qtopcua", "qtknx", "qtconnectivity",
+    "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
+    "qtspeech", "qtsystems", "qttools", "qttranslations",
+    "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
+    "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
+    "qtx11extras", "qtopcua", "qtknx", "doc",
 ]
 
 
@@ -38,15 +40,15 @@ QT_VERSION_CONFIGS: Dict[str, Dict[str, Any]] = {
         "skip_modules": COMMON_SKIP_MODULES,
         "c++std": "c++14",
         "opengl": ["es2", "opengles3"],
-        "extra_configure_options": [],
-        "notes": "Qt 5.12 LTS - uses -ohos-arch parameter"
+        "extra_configure_options": ["-no-dbus"],
+        "notes": "Qt 5.12 LTS - uses -ohos-arch parameter, dbus disabled for HarmonyOS"
     },
     "5.15.16": {
         "skip_modules": QT15_SKIP_MODULES,
         "c++std": "c++14",
         "opengl": ["es2", "opengles3"],
-        "extra_configure_options": [],
-        "notes": "Qt 5.15 LTS - recommended skip modules for HarmonyOS"
+        "extra_configure_options": ["-no-dbus"],
+        "notes": "Qt 5.15 LTS - recommended skip modules for HarmonyOS, dbus disabled"
     },
 }
 
@@ -55,8 +57,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "skip_modules": COMMON_SKIP_MODULES,
     "c++std": "c++14",
     "opengl": ["es2", "opengles3"],
-    "extra_configure_options": [],
-    "notes": "Using default configuration"
+    "extra_configure_options": ["-no-dbus"],
+    "notes": "Using default configuration, dbus disabled for HarmonyOS"
 }
 
 
