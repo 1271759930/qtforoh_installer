@@ -32,7 +32,19 @@ def generate_build_script(
     # Get paths
     mingw_bin = env.get("MINGW_ROOT", "")
     perl_bin = env.get("PERL_ROOT", "")
+    python_bin = env.get("PYTHON_ROOT", "")
     llvm_bin = str(config.harmony_sdk_path / "native" / "llvm" / "bin")
+
+    # If python_bin not set, try to get from config
+    if not python_bin and config.python_path:
+        from pathlib import Path as PPath
+        python_path = PPath(config.python_path)
+        if python_path.is_file():
+            python_bin = str(python_path.parent)
+        elif python_path.name.lower() == "bin":
+            python_bin = str(python_path)
+        else:
+            python_bin = str(python_path / "bin")
 
     # Configure script path
     configure_script = config.qt_source_path / "configure.bat"
@@ -88,6 +100,12 @@ if exist "%PERL_BIN%" set "PATH=%PATH%;%PERL_BIN%"
 if exist "%PERL_BIN%" echo [OK] Perl: %PERL_BIN%
 if not exist "%PERL_BIN%" echo [ERROR] Perl path not found: %PERL_BIN%
 if not exist "%PERL_BIN%" exit /b 1
+
+REM Add Python for QML compilation
+set "PYTHON_BIN={python_bin}"
+if exist "%PYTHON_BIN%" set "PATH=%PATH%;%PYTHON_BIN%"
+if exist "%PYTHON_BIN%" echo [OK] Python: %PYTHON_BIN%"
+if not exist "%PYTHON_BIN%" echo [WARN] Python path not configured - using system Python
 
 REM Add LLVM for OHOS cross-compile
 set "LLVM_BIN={llvm_bin}"

@@ -187,9 +187,26 @@ class QtBuilder:
         self.logger.info(f"Executing build script: {script_path}")
 
         try:
-            # Use minimal environment
+            # Get Python path for clean_env
+            python_path = self.env_manager.env_vars.get("PYTHON_ROOT", "")
+            if not python_path and self.config.python_path:
+                from pathlib import Path as PPath
+                p = PPath(self.config.python_path)
+                if p.is_file():
+                    python_path = str(p.parent)
+                elif p.name.lower() == "bin":
+                    python_path = str(p)
+                else:
+                    python_path = str(p / "bin")
+
+            # Build PATH with Python
+            base_path = "C:\\Windows\\System32;C:\\Windows"
+            if python_path:
+                base_path = f"{python_path};{base_path}"
+
+            # Use minimal environment with Python
             clean_env = {
-                "PATH": "C:\\Windows\\System32;C:\\Windows",
+                "PATH": base_path,
                 "SYSTEMROOT": os.environ.get("SYSTEMROOT", "C:\\Windows"),
                 "TEMP": os.environ.get("TEMP", ""),
                 "TMP": os.environ.get("TMP", ""),
@@ -199,6 +216,10 @@ class QtBuilder:
                 "COMSPEC": os.environ.get("COMSPEC", "C:\\Windows\\System32\\cmd.exe"),
                 "PATHEXT": os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD"),
             }
+
+            # Add Python environment variable
+            if python_path:
+                clean_env["PYTHON_ROOT"] = python_path
 
             result = subprocess.run(
                 [str(script_path)],
