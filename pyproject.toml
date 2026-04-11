@@ -7,6 +7,11 @@ name = "qtohos-installer"
 version = "1.0.0"
 description = "Qt for HarmonyOS Installation CLI Tool"
 readme = "README.md"
+# Python 3.12 is required for:
+# - Improved type hints and generics (PEP 695)
+# - Better subprocess handling
+# - Modern pathlib features
+# - Enhanced f-string parsing
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
@@ -49,9 +54,12 @@ qtohos-installer = "src.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/qtohos-installer"
-Documentation = "https://github.com/yourusername/qtohos-installer#readme"
+Documentation = "https://github.com/yourusername/qtohos-installer/blob/main/docs/GUIDE.md"
 Repository = "https://github.com/yourusername/qtohos-installer"
 Issues = "https://github.com/yourusername/qtohos-installer/issues"
+
+# Main entry point: run.py
+# Usage: python run.py
 
 [tool.setuptools.packages.find]
 where = ["."]

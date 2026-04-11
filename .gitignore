@@ -52,3 +52,4 @@ Thumbs.db
 # Project specific
 config.yaml
 .env
+setup_env.bat

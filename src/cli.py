@@ -31,13 +31,15 @@ display = Display()
 @click.version_option(version="1.0.0", prog_name="qtohos-installer")
 def cli():
     """
-    Qt for HarmonyOS Installation CLI Tool
+    Qt for HarmonyOS Cross-Compilation CLI Tool
 
-    This tool helps you install Qt for HarmonyOS by:
+    This tool cross-compiles Qt framework for HarmonyOS platform on Windows.
+    It helps you by:
     - Collecting necessary paths and configurations
     - Downloading required tools (make, perl)
-    - Configuring build environment
-    - Compiling and installing Qt
+    - Configuring cross-compilation environment
+    - Compiling Qt source with HarmonyOS SDK toolchain
+    - Installing Qt SDK to local Windows path
     """
     pass
 
