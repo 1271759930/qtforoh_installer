@@ -8,7 +8,14 @@ import questionary
 from questionary import Style
 
 from ..config.schema import InstallConfig
-from ..config.defaults import get_qt_version_config, get_module_description, ALL_AVAILABLE_MODULES, get_default_skip_modules
+from ..config.defaults import (
+    get_qt_version_config,
+    get_module_description,
+    get_module_status,
+    is_module_essential,
+    get_available_modules,
+    get_default_skip_modules,
+)
 from ..utils import validate_path, detect_qt_version
 
 
@@ -216,28 +223,84 @@ class ConfigCollector:
             except ValueError:
                 print("\033[91m  ✗ Please enter a valid number\033[0m")
 
-    def collect_skip_modules(self, current_skip_modules: List[str]) -> List[str]:
-        """Collect skip modules with checkbox selection"""
+    def collect_skip_modules(
+        self,
+        current_skip_modules: List[str],
+        qt_version: str = "5.15.16",
+        qt_source_path: Optional[Path] = None
+    ) -> List[str]:
+        """Collect skip modules with checkbox selection.
+
+        Args:
+            current_skip_modules: Currently selected modules to skip
+            qt_version: Qt version to determine available modules
+            qt_source_path: Qt source path to filter existing modules
+
+        Returns:
+            List of modules to skip
+        """
         self._print_header("Skip Modules Configuration")
 
         print("Select Qt modules to skip during build.")
         print("Use SPACE to toggle selection, ENTER to confirm.")
-        print("Skipping unnecessary modules speeds up build time.")
+        print()
+        print("\033[93mNote:\033[0m")
+        print("  • 核心模块(qtbase/qtdeclarative)不建议跳过")
+        print("  • 已废弃/忽略模块建议跳过")
         print()
 
-        # Build choices with descriptions
+        # Get available modules for this version
+        available_modules = get_available_modules(qt_version, qt_source_path)
+
+        if not available_modules:
+            print("\033[91m  ✗ No modules found in source path\033[0m")
+            return current_skip_modules
+
+        # Sort modules: essential first, then by status
+        def module_sort_key(m):
+            status = get_module_status(m)
+            status_order = {"essential": 0, "addon": 1, "preview": 2, "deprecated": 3, "ignore": 4}
+            return (is_module_essential(m), status_order.get(status, 5), m)
+
+        available_modules.sort(key=module_sort_key)
+
+        # Build choices with descriptions and status indicators
         choices = []
-        for module in ALL_AVAILABLE_MODULES:
+        for module in available_modules:
             description = get_module_description(module)
-            is_selected = module in current_skip_modules
+            status = get_module_status(module)
+
+            # Determine if module should be checked (selected to skip)
+            # Essential modules: never checked by default
+            # Ignore/deprecated modules: always checked by default
+            # Other modules: use current selection
+            if is_module_essential(module):
+                is_checked = False  # Core modules never skip by default
+                status_indicator = "\033[92m[核心]\033[0m"
+            elif status == "ignore" or status == "deprecated":
+                is_checked = True  # Deprecated/ignore modules always skip
+                status_indicator = "\033[91m[废弃]\033[0m"
+            elif status == "preview":
+                is_checked = module in current_skip_modules
+                status_indicator = "\033[93m[预览]\033[0m"
+            else:
+                is_checked = module in current_skip_modules
+                status_indicator = ""  # Addon modules no indicator
+
+            # Build display title
+            if status_indicator:
+                title = f"{module} - {description} {status_indicator}"
+            else:
+                title = f"{module} - {description}"
+
             choices.append(questionary.Choice(
-                f"{module} - {description}",
+                title,
                 value=module,
-                checked=is_selected
+                checked=is_checked
             ))
 
         response = questionary.checkbox(
-            "Select modules to skip:",
+            f"Select modules to skip ({len(available_modules)} available):",
             choices=choices,
             style=CUSTOM_STYLE,
         ).ask()
@@ -245,8 +308,16 @@ class ConfigCollector:
         if response is None:
             raise KeyboardInterrupt("Installation cancelled by user")
 
-        print(f"\033[92m  ✓ Selected {len(response)} modules to skip\033[0m")
-        return response
+        # Always ensure essential modules are NOT skipped (even if user selected)
+        final_skip = [m for m in response if not is_module_essential(m)]
+
+        # Show result
+        essential_warn = [m for m in response if is_module_essential(m)]
+        if essential_warn:
+            print(f"\033[93m  ⚠ 核心模块 {essential_warn} 已自动取消跳过\033[0m")
+
+        print(f"\033[92m  ✓ Selected {len(final_skip)} modules to skip\033[0m")
+        return final_skip
 
     def collect_tool_paths(
         self,
@@ -502,7 +573,9 @@ class ConfigCollector:
                 )
             elif response == "9":
                 config.skip_modules = self.collect_skip_modules(
-                    current_skip_modules=config.skip_modules
+                    current_skip_modules=config.skip_modules,
+                    qt_version=config.qt_version,
+                    qt_source_path=config.qt_source_path
                 )
 
     def show_welcome(self) -> None:
