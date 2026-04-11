@@ -47,6 +47,96 @@ class ConfigCollector:
         print(f"\033[96m{'─' * 50}\033[0m")
         print()
 
+    def show_license_agreement(self) -> bool:
+        """
+        Show Qt open source license agreement page.
+        显示 Qt 开源协议同意页面。
+
+        Returns:
+            True if user agrees and continues, False if user cancels
+        """
+        print()
+        print("\033[96m" + "═" * 60 + "\033[0m")
+        print("\033[1;96m" + "  Qt 开源协议 / Qt Open Source License".center(60) + "\033[0m")
+        print("\033[96m" + "═" * 60 + "\033[0m")
+        print()
+
+        print("Qt 使用 GNU Lesser General Public License (LGPL) 开源协议。")
+        print()
+        print("使用本工具构建 Qt 即表示您同意遵守 LGPL 协议条款。")
+        print("主要条款包括：")
+        print("  • 可以自由使用、修改和分发 Qt")
+        print("  • 如果修改 Qt 本身，需要开源您的修改")
+        print("  • 使用 Qt 开发的应用程序可以保持闭源")
+        print("  • 需要提供 Qt 的源代码或获取方式")
+        print()
+        print("完整协议文本请参阅：")
+        print("  \033[92mhttps://www.gnu.org/licenses/lgpl-3.0.html\033[0m")
+        print()
+        print("\033[90m" + "-" * 60 + "\033[0m")
+        print()
+        print("Qt is licensed under the GNU Lesser General Public License (LGPL).")
+        print()
+        print("By using this tool to build Qt, you agree to comply with the LGPL terms.")
+        print("Key provisions include:")
+        print("  • Freedom to use, modify, and distribute Qt")
+        print("  • Modifications to Qt itself must be open-sourced")
+        print("  • Applications using Qt may remain proprietary")
+        print("  • Qt source code or access method must be provided")
+        print()
+        print("For full license text, see:")
+        print("  \033[92mhttps://www.gnu.org/licenses/lgpl-3.0.html\033[0m")
+        print()
+
+        # Checkbox for agreement
+        choices = [
+            questionary.Choice(
+                "我同意开源协议 / I agree to the open source license",
+                value="agree",
+                checked=False
+            ),
+        ]
+
+        response = questionary.checkbox(
+            "请勾选同意协议后继续 / Check the box to agree and continue:",
+            choices=choices,
+            style=CUSTOM_STYLE,
+        ).ask()
+
+        if response is None:
+            return False
+
+        # Check if user agreed
+        agreed = "agree" in response
+
+        if not agreed:
+            # User didn't check the box, ask what they want to do
+            print()
+            print("\033[91m  ⚠ 您未勾选同意协议 / You did not agree to the license\033[0m")
+            print()
+
+            choices = [
+                questionary.Choice("返回勾选协议 / Go back and agree", value="back"),
+                questionary.Choice("✗ 取消安装 / Cancel installation", value="cancel"),
+            ]
+
+            action = questionary.select(
+                "请选择 / What would you like to do?",
+                choices=choices,
+                style=CUSTOM_STYLE,
+            ).ask()
+
+            if action == "back":
+                # Recursively call to show agreement again
+                return self.show_license_agreement()
+            else:
+                return False
+
+        # User agreed
+        print()
+        print("\033[92m  ✓ 您已同意 Qt 开源协议 / You have agreed to the Qt open source license\033[0m")
+        return True
+
     def collect_qt_source_path(self, default: Optional[str] = None) -> Path:
         """Collect Qt source path with interactive input / 收集Qt源码路径"""
         self._print_header("Qt源码路径 / Qt Source Code Path")
@@ -694,6 +784,10 @@ class ConfigCollector:
     def collect_all(self) -> InstallConfig:
         """Collect all configuration from user with modern UI / 收集所有用户配置"""
         self.show_welcome()
+
+        # Show license agreement
+        if not self.show_license_agreement():
+            raise KeyboardInterrupt("用户取消安装 / Installation cancelled by user")
 
         # Collect paths
         qt_source_path = self.collect_qt_source_path()

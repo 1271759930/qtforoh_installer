@@ -78,8 +78,13 @@ def check_llvm_mingw() -> Tuple[bool, str, str]:
     """
     import re
 
-    # Check make command
+    # Check make command (try both 'make' and 'mingw32-make' on Windows)
     make_path = shutil.which("make")
+
+    # On Windows, also check for mingw32-make
+    if not make_path and is_windows():
+        make_path = shutil.which("mingw32-make")
+
     if make_path:
         # Check if it's from llvm-mingw (path contains "llvm-mingw")
         make_path_lower = make_path.lower()
