@@ -69,6 +69,52 @@ def check_python_version() -> Tuple[bool, str]:
     return False, f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.12)"
 
 
+def check_llvm_mingw() -> Tuple[bool, str, str]:
+    """
+    Check if llvm-mingw make tool is available.
+
+    Returns:
+        Tuple of (is_valid, status_message, download_hint)
+    """
+    import re
+
+    # Check make command
+    make_path = shutil.which("make")
+    if make_path:
+        # Check if it's from llvm-mingw (path contains "llvm-mingw")
+        make_path_lower = make_path.lower()
+        if "llvm-mingw" in make_path_lower:
+            # Extract version info if possible (e.g., llvm-mingw-20260407-ucrt)
+            match = re.search(r'llvm-mingw-(\d{8})', make_path)
+            if match:
+                version_date = match.group(1)
+                return True, f"llvm-mingw make found (version: {version_date})", ""
+            return True, "llvm-mingw make found", ""
+        else:
+            # Found make but not llvm-mingw version
+            return False, f"Make found but not llvm-mingw version: {make_path}", \
+                "请安装 llvm-mingw: https://github.com/mstorsjo/llvm-mingw/releases"
+    else:
+        # No make found
+        return False, "Make 未安装", \
+            "请下载 llvm-mingw: https://github.com/mstorsjo/llvm-mingw/releases"
+
+
+def check_perl() -> Tuple[bool, str, str]:
+    """
+    Check if Perl is available.
+
+    Returns:
+        Tuple of (is_valid, status_message, download_hint)
+    """
+    perl_path = shutil.which("perl")
+    if perl_path:
+        return True, f"Perl found: {perl_path}", ""
+    else:
+        return False, "Perl 未安装", \
+            "请下载 Strawberry Perl: https://strawberryperl.com/"
+
+
 def check_command_exists(command: str) -> bool:
     """Check if a command exists in PATH"""
     return shutil.which(command) is not None

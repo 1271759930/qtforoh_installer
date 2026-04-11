@@ -3,8 +3,8 @@
 Qt for HarmonyOS Installer - 一键启动脚本
 
 用法:
-    python run.py              # 启动交互式安装
-    python run.py install      # 启动交互式安装
+    python run.py              # 进入主菜单
+    python run.py install      # 直接运行安装
     python run.py check        # 检查前置条件
     python run.py config       # 查看配置
     python run.py guide        # 显示安装指南
@@ -14,7 +14,7 @@ Qt for HarmonyOS Installer - 一键启动脚本
 此脚本会自动:
     1. 检查 Python 版本 (需要 >= 3.12)
     2. 检查并安装缺失的依赖
-    3. 运行安装工具
+    3. 进入交互式菜单或执行指定命令
 """
 
 import sys
@@ -130,16 +130,25 @@ def main():
     # Step 3: 确保依赖已安装
     ensure_dependencies()
 
-    # Step 4: 运行 CLI
-    print()
-    print("=" * 50)
-    print("Qt for HarmonyOS 交叉编译工具")
-    print("=" * 50)
-    print()
+    # Step 4: 运行
+    # 如果有命令行参数，直接执行 CLI 命令
+    # 否则进入交互式菜单
+    args = [a for a in sys.argv[1:] if not a.startswith('-')]
 
-    # 导入并运行 CLI
-    from src.cli import cli
-    cli()
+    if args:
+        # 有子命令参数，直接调用 CLI
+        from src.cli import cli
+        cli()
+    else:
+        # 无参数，进入交互式菜单
+        print()
+        print("=" * 50)
+        print("Qt for HarmonyOS 交叉编译工具")
+        print("=" * 50)
+        print()
+
+        from src.ui.menu import run_menu_loop
+        run_menu_loop()
 
 
 if __name__ == "__main__":

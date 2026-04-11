@@ -1,140 +1,88 @@
 """
-CLI entry point - Command definitions and dispatch
+Interactive menu module - Main menu for Qt for HarmonyOS Installer
 """
 
 import sys
 from pathlib import Path
-import click
+import questionary
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
+from rich.panel import Panel
 
-# Fix encoding for Windows PowerShell
-if sys.platform == "win32":
-    if sys.stdout.encoding != "utf-8":
-        sys.stdout.reconfigure(encoding="utf-8")
-    if sys.stderr.encoding != "utf-8":
-        sys.stderr.reconfigure(encoding="utf-8")
-
-# Import from new module structure
-from .core import QtHarmonyInstaller
-from .config import ConfigManager
-from .ui.display import Display
-from .utils import check_python_version, check_llvm_mingw, check_perl
+from .display import Display
 
 
 console = Console(force_terminal=True)
 display = Display()
 
 
-@click.group()
-@click.version_option(version="1.0.0", prog_name="qtohos-installer")
-def cli():
+def show_menu() -> str:
     """
-    Qt for HarmonyOS Cross-Compilation CLI Tool
+    Display the main menu and return the selected action.
 
-    This tool cross-compiles Qt framework for HarmonyOS platform on Windows.
-    It helps you by:
-    - Collecting necessary paths and configurations
-    - Downloading required tools (make, perl)
-    - Configuring cross-compilation environment
-    - Compiling Qt source with HarmonyOS SDK toolchain
-    - Installing Qt SDK to local Windows path
+    Returns:
+        str: Selected action key ('install', 'check', 'config', 'guide', 'clean', 'exit')
     """
-    pass
+    console.clear()
+
+    # Display header
+    console.print("=" * 50, style="cyan")
+    console.print("Qt for HarmonyOS 交叉编译工具", style="bold cyan")
+    console.print("=" * 50, style="cyan")
+    console.print()
+
+    choices = [
+        questionary.Choice("安装 Qt          - 交互式安装 Qt for HarmonyOS", value="install"),
+        questionary.Choice("检查环境         - 检查前置条件和依赖", value="check"),
+        questionary.Choice("查看配置         - 显示当前配置信息", value="config"),
+        questionary.Choice("安装指南         - 显示安装步骤说明", value="guide"),
+        questionary.Choice("清理构建产物     - 删除构建目录和日志", value="clean"),
+        questionary.Choice("退出", value="exit"),
+    ]
+
+    action = questionary.select(
+        "请选择要执行的功能:",
+        choices=choices,
+        style=questionary.Style([
+            ('qmark', 'fg:cyan bold'),
+            ('question', 'fg:white bold'),
+            ('answer', 'fg:green bold'),
+            ('pointer', 'fg:cyan bold'),
+            ('highlighted', 'fg:cyan bold'),
+            ('selected', 'fg:green'),
+        ])
+    ).ask()
+
+    if action is None:
+        # User cancelled (Ctrl+C)
+        return "exit"
+
+    return action
 
 
-@cli.command()
-@click.option(
-    "--workspace", "-w",
-    type=click.Path(exists=False),
-    default=".",
-    help="Workspace directory for installation"
-)
-@click.option(
-    "--yes", "-y",
-    is_flag=True,
-    default=False,
-    help="Skip confirmation prompts (use existing config)"
-)
-def install(workspace: str, yes: bool):
-    """
-    Run interactive installation process
+def do_install():
+    """执行安装流程"""
+    from ..core import QtHarmonyInstaller
 
-    This command will:
-    1. Prompt for Qt source path, HarmonyOS SDK path, and installation path
-    2. Download required tools (make, perl)
-    3. Setup environment variables
-    4. Build and install Qt for HarmonyOS
-    """
-    workspace_path = Path(workspace).resolve()
-
+    workspace_path = Path(".").resolve()
     console.print("\n[bold cyan]Qt for HarmonyOS Installation Tool[/bold cyan]")
     console.print(f"Workspace: {workspace_path}\n")
 
-    installer = QtHarmonyInstaller(workspace_path, auto_confirm=yes)
+    installer = QtHarmonyInstaller(workspace_path)
 
     if installer.run():
         console.print("\n[bold green]✓ Installation successful![/bold green]")
-        sys.exit(0)
     else:
         console.print("\n[bold red]✗ Installation failed[/bold red]")
-        sys.exit(1)
 
 
-@cli.command()
-@click.option(
-    "--workspace", "-w",
-    type=click.Path(exists=True),
-    default=".",
-    help="Workspace directory"
-)
-def config(workspace: str):
-    """
-    View or modify configuration
+def do_check():
+    """执行环境检查"""
+    from ..config import ConfigManager
+    from ..utils import check_python_version, check_llvm_mingw, check_perl
+    import shutil
 
-    Shows current configuration and allows modification.
-    """
-    workspace_path = Path(workspace).resolve()
-    config_manager = ConfigManager(workspace_path / "config.yaml")
-
-    if config_manager.load_config():
-        console.print("\n[bold cyan]Current Configuration:[/bold cyan]\n")
-
-        table = Table(show_header=True, header_style="bold cyan")
-        table.add_column("Property", style="cyan")
-        table.add_column("Value", style="green")
-
-        cfg = config_manager.install_config
-        if cfg:
-            table.add_row("Qt Source Path", str(cfg.qt_source_path))
-            table.add_row("HarmonyOS SDK Path", str(cfg.harmony_sdk_path))
-            table.add_row("Install Path", str(cfg.install_path))
-            table.add_row("Architecture", cfg.architecture)
-            table.add_row("Qt Version", cfg.qt_version)
-            table.add_row("Build Type", cfg.build_type)
-            table.add_row("Parallel Jobs", str(cfg.parallel_jobs))
-
-            console.print(table)
-    else:
-        console.print("\n[yellow]No configuration found[/yellow]")
-        console.print("Run 'qtohos-installer install' to create configuration")
-
-
-@cli.command()
-@click.option(
-    "--workspace", "-w",
-    type=click.Path(exists=True),
-    default=".",
-    help="Workspace directory"
-)
-def check(workspace: str):
-    """
-    Check prerequisites and environment
-
-    Validates that all required tools and paths are available.
-    """
-    workspace_path = Path(workspace).resolve()
+    workspace_path = Path(".").resolve()
     config_manager = ConfigManager(workspace_path / "config.yaml")
 
     console.print("\n[bold cyan]Checking Prerequisites...[/bold cyan]\n")
@@ -147,7 +95,6 @@ def check(workspace: str):
         console.print(f"[red]✗ Python: {version}[/red]")
 
     # Check Git
-    import shutil
     if shutil.which("git"):
         console.print("[green]✓ Git is available[/green]")
     else:
@@ -199,13 +146,38 @@ def check(workspace: str):
     console.print("\n[bold cyan]Check Complete[/bold cyan]")
 
 
-@cli.command()
-def guide():
-    """
-    Show installation guide and documentation
+def do_config():
+    """显示当前配置"""
+    from ..config import ConfigManager
 
-    Displays helpful information about the installation process.
-    """
+    workspace_path = Path(".").resolve()
+    config_manager = ConfigManager(workspace_path / "config.yaml")
+
+    if config_manager.load_config():
+        console.print("\n[bold cyan]Current Configuration:[/bold cyan]\n")
+
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="green")
+
+        cfg = config_manager.install_config
+        if cfg:
+            table.add_row("Qt Source Path", str(cfg.qt_source_path))
+            table.add_row("HarmonyOS SDK Path", str(cfg.harmony_sdk_path))
+            table.add_row("Install Path", str(cfg.install_path))
+            table.add_row("Architecture", cfg.architecture)
+            table.add_row("Qt Version", cfg.qt_version)
+            table.add_row("Build Type", cfg.build_type)
+            table.add_row("Parallel Jobs", str(cfg.parallel_jobs))
+
+            console.print(table)
+    else:
+        console.print("\n[yellow]No configuration found[/yellow]")
+        console.print("Run '安装 Qt' to create configuration")
+
+
+def do_guide():
+    """显示安装指南"""
     guide_text = """
 [bold cyan]Qt for HarmonyOS Installation Guide[/bold cyan]
 
@@ -228,7 +200,7 @@ def guide():
    Install DevEco Studio and SDK (API 17 recommended)
 
 3. [yellow]Run Installation Tool[/yellow]
-   qtohos-installer install
+   python run.py
 
 4. [yellow]Configure Qt Creator[/yellow]
    Add Qt version: <install_path>/bin/qmake
@@ -241,26 +213,18 @@ def guide():
 [bold]Troubleshooting:[/bold]
   • If make/perl missing, tool will attempt to download
   • Check logs in workspace/logs/ directory
-  • Run 'qtohos-installer check' to verify prerequisites
+  • Run '检查环境' to verify prerequisites
     """
 
     console.print(Panel(guide_text, border_style="cyan"))
 
 
-@cli.command()
-@click.option(
-    "--workspace", "-w",
-    type=click.Path(exists=True),
-    default=".",
-    help="Workspace directory"
-)
-def clean(workspace: str):
-    """
-    Clean build artifacts and temporary files
+def do_clean():
+    """清理构建产物"""
+    from ..config import ConfigManager
+    import shutil
 
-    Removes build directory and temporary files, but keeps configuration.
-    """
-    workspace_path = Path(workspace).resolve()
+    workspace_path = Path(".").resolve()
     config_manager = ConfigManager(workspace_path / "config.yaml")
 
     if not config_manager.load_config():
@@ -277,7 +241,6 @@ def clean(workspace: str):
     build_dir = cfg.qt_source_path / f"build_{cfg.architecture}"
     if build_dir.exists():
         console.print(f"Removing: {build_dir}")
-        import shutil
         try:
             shutil.rmtree(build_dir)
             console.print("[green]✓ Build directory removed[/green]")
@@ -298,17 +261,39 @@ def clean(workspace: str):
     console.print("[yellow]Note: Configuration preserved[/yellow]")
 
 
-def main():
-    """Main entry point"""
-    try:
-        cli()
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Operation cancelled[/yellow]")
-        sys.exit(1)
-    except Exception as e:
-        console.print(f"\n[red]Error: {e}[/red]")
-        sys.exit(1)
+def run_menu_loop():
+    """
+    Run the menu in a loop. Execute selected action and return to menu
+    until user chooses to exit.
+    """
+    while True:
+        action = show_menu()
 
+        if action == "exit":
+            console.print("\n[yellow]再见！[/yellow]")
+            sys.exit(0)
 
-if __name__ == "__main__":
-    main()
+        # Execute the selected action
+        try:
+            if action == "install":
+                do_install()
+            elif action == "check":
+                do_check()
+            elif action == "config":
+                do_config()
+            elif action == "guide":
+                do_guide()
+            elif action == "clean":
+                do_clean()
+
+            console.print()
+            console.print("[cyan]按 Enter 返回菜单...[/cyan]")
+            input()
+
+        except KeyboardInterrupt:
+            console.print("\n[yellow]操作已取消[/yellow]")
+            continue
+        except Exception as e:
+            console.print(f"\n[red]执行出错: {e}[/red]")
+            console.print("[cyan]按 Enter 返回菜单...[/cyan]")
+            input()
