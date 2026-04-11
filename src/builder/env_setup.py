@@ -85,6 +85,9 @@ class EnvironmentManager:
             current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{custom_tool_path};{current_path}"
 
+        # Add Python to PATH if configured
+        self._setup_python_environment()
+
         # Add LLVM bin to PATH
         llvm_bin = self.config.harmony_sdk_path / "native" / "llvm" / "bin"
         if llvm_bin.exists():
@@ -98,7 +101,7 @@ class EnvironmentManager:
             self.env_vars["PATH"] = f"{perl_bin};{current_path}"
 
     def _set_windows_tool_roots(self) -> None:
-        """Set MINGW_ROOT/PERL_ROOT from user-configured tool paths."""
+        """Set MINGW_ROOT/PERL_ROOT/PYTHON_ROOT from user-configured tool paths."""
         make_path = self.config.make_path
         if make_path:
             make_path = Path(make_path)
@@ -120,6 +123,62 @@ class EnvironmentManager:
             else:
                 perl_bin = perl_path / "bin"
             self.env_vars["PERL_ROOT"] = str(perl_bin)
+
+        python_path = self.config.python_path
+        if python_path:
+            python_path = Path(python_path)
+            if python_path.is_file():
+                python_bin = python_path.parent
+            elif python_path.name.lower() == "bin":
+                python_bin = python_path
+            else:
+                python_bin = python_path / "bin"
+            self.env_vars["PYTHON_ROOT"] = str(python_bin)
+
+    def _setup_python_environment(self) -> None:
+        """Setup Python environment variables for QML compilation."""
+        python_path = self.config.python_path
+
+        if python_path:
+            # User configured Python path
+            python_path = Path(python_path)
+            if python_path.is_file():
+                python_bin = python_path.parent
+            elif python_path.name.lower() == "bin":
+                python_bin = python_path
+            else:
+                python_bin = python_path / "bin"
+
+            # Add Python to PATH
+            current_path = self.env_vars.get("PATH", "")
+            self.env_vars["PATH"] = f"{python_bin};{current_path}"
+
+            # Set PYTHON_PATH for reference
+            self.env_vars["PYTHON_PATH"] = str(python_path)
+        else:
+            # Use system Python from environment variable
+            system_python = os.environ.get("PYTHON_ROOT")
+            system_python_path = os.environ.get("PYTHON_PATH")
+
+            if system_python:
+                python_bin = Path(system_python)
+                current_path = self.env_vars.get("PATH", "")
+                self.env_vars["PATH"] = f"{python_bin};{current_path}"
+                self.env_vars["PYTHON_ROOT"] = system_python
+            elif system_python_path:
+                python_path = Path(system_python_path)
+                python_bin = python_path if python_path.name.lower() == "bin" else python_path / "bin"
+                current_path = self.env_vars.get("PATH", "")
+                self.env_vars["PATH"] = f"{python_bin};{current_path}"
+                self.env_vars["PYTHON_PATH"] = system_python_path
+
+            # Also check if Python is already in PATH from system
+            # This is the most common case - use system Python directly
+            system_path = os.environ.get("PATH", "")
+            if "python" in system_path.lower():
+                # Python is already in system PATH, ensure it's available
+                # The current Python executable is already added in reset_path_to_minimum
+                pass
 
     def _build_windows_tool_path(self) -> str:
         """Build custom PATH entries from user-provided make/perl paths."""

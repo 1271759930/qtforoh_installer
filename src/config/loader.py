@@ -78,6 +78,7 @@ class ConfigManager:
         parallel_jobs: int = 8,
         make_path: Optional[Path] = None,
         perl_path: Optional[Path] = None,
+        python_path: Optional[Path] = None,
         version_source: str = "default",
     ) -> InstallConfig:
         """Create a new configuration with defaults"""
@@ -94,6 +95,7 @@ class ConfigManager:
             skip_modules=skip_modules,
             make_path=make_path,
             perl_path=perl_path,
+            python_path=python_path,
             version_source=version_source,
         )
 
