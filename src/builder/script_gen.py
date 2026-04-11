@@ -27,6 +27,9 @@ def generate_build_script(
     Returns:
         Path to generated batch script
     """
+    import sys
+    import os
+
     env = env_manager.get_build_environment()
 
     # Get paths
@@ -35,16 +38,22 @@ def generate_build_script(
     python_bin = env.get("PYTHON_ROOT", "")
     llvm_bin = str(config.harmony_sdk_path / "native" / "llvm" / "bin")
 
-    # If python_bin not set, try to get from config
-    if not python_bin and config.python_path:
-        from pathlib import Path as PPath
-        python_path = PPath(config.python_path)
-        if python_path.is_file():
-            python_bin = str(python_path.parent)
-        elif python_path.name.lower() == "bin":
-            python_bin = str(python_path)
-        else:
-            python_bin = str(python_path / "bin")
+    # If python_bin not set, try multiple fallback sources
+    if not python_bin:
+        # First try from config
+        if config.python_path:
+            from pathlib import Path as PPath
+            python_path = PPath(config.python_path)
+            if python_path.is_file():
+                python_bin = str(python_path.parent)
+            elif python_path.name.lower() == "bin":
+                python_bin = str(python_path)
+            else:
+                python_bin = str(python_path / "bin")
+
+        # Second fallback: use current Python executable directory
+        if not python_bin:
+            python_bin = os.path.dirname(sys.executable)
 
     # Configure script path
     configure_script = config.qt_source_path / "configure.bat"

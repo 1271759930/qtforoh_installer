@@ -153,32 +153,22 @@ class EnvironmentManager:
             current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{python_bin};{current_path}"
 
-            # Set PYTHON_PATH for reference
+            # Set PYTHON_ROOT for reference
+            self.env_vars["PYTHON_ROOT"] = str(python_bin)
             self.env_vars["PYTHON_PATH"] = str(python_path)
         else:
-            # Use system Python from environment variable
-            system_python = os.environ.get("PYTHON_ROOT")
-            system_python_path = os.environ.get("PYTHON_PATH")
+            # No user-configured Python path - use current Python executable
+            # This ensures PYTHON_ROOT is always set for script generation
+            current_python_dir = Path(sys.executable).parent
 
-            if system_python:
-                python_bin = Path(system_python)
-                current_path = self.env_vars.get("PATH", "")
-                self.env_vars["PATH"] = f"{python_bin};{current_path}"
-                self.env_vars["PYTHON_ROOT"] = system_python
-            elif system_python_path:
-                python_path = Path(system_python_path)
-                python_bin = python_path if python_path.name.lower() == "bin" else python_path / "bin"
-                current_path = self.env_vars.get("PATH", "")
-                self.env_vars["PATH"] = f"{python_bin};{current_path}"
-                self.env_vars["PYTHON_PATH"] = system_python_path
+            # Always set PYTHON_ROOT to current Python directory
+            self.env_vars["PYTHON_ROOT"] = str(current_python_dir)
 
-            # Also check if Python is already in PATH from system
-            # This is the most common case - use system Python directly
-            system_path = os.environ.get("PATH", "")
-            if "python" in system_path.lower():
-                # Python is already in system PATH, ensure it's available
-                # The current Python executable is already added in reset_path_to_minimum
-                pass
+            # Check if Python is already in PATH from reset_path_to_minimum
+            current_path = self.env_vars.get("PATH", "")
+            if str(current_python_dir) not in current_path:
+                # Add Python to PATH if not already there
+                self.env_vars["PATH"] = f"{current_python_dir};{current_path}"
 
     def _build_windows_tool_path(self) -> str:
         """Build custom PATH entries from user-provided make/perl paths."""

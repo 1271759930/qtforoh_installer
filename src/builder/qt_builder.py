@@ -3,6 +3,7 @@ Qt Builder - Build Qt for HarmonyOS
 """
 
 import os
+import sys
 import shutil
 import subprocess
 import logging
@@ -187,8 +188,10 @@ class QtBuilder:
         self.logger.info(f"Executing build script: {script_path}")
 
         try:
-            # Get Python path for clean_env
+            # Get Python path for clean_env - try multiple sources
             python_path = self.env_manager.env_vars.get("PYTHON_ROOT", "")
+
+            # Fallback 1: from config
             if not python_path and self.config.python_path:
                 from pathlib import Path as PPath
                 p = PPath(self.config.python_path)
@@ -198,6 +201,10 @@ class QtBuilder:
                     python_path = str(p)
                 else:
                     python_path = str(p / "bin")
+
+            # Fallback 2: use current Python executable directory
+            if not python_path:
+                python_path = os.path.dirname(sys.executable)
 
             # Build PATH with Python
             base_path = "C:\\Windows\\System32;C:\\Windows"
@@ -220,6 +227,8 @@ class QtBuilder:
             # Add Python environment variable
             if python_path:
                 clean_env["PYTHON_ROOT"] = python_path
+
+            print(f"[cyan]Python path in clean_env: {python_path}[/cyan]")
 
             result = subprocess.run(
                 [str(script_path)],
