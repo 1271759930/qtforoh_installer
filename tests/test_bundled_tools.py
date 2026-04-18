@@ -179,7 +179,7 @@ def test_download_tools_script_exists():
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        required_funcs = ['download_file', 'extract_zip', 'download_llvm_mingw', 'download_perl', 'verify_tools', 'main']
+        required_funcs = ['extract_zip', 'download_file', 'extract_llvm_mingw', 'extract_perl', 'verify_tools', 'main']
         for func in required_funcs:
             if hasattr(module, func):
                 console.print(f"[green]  ✓ {func} defined[/green]")

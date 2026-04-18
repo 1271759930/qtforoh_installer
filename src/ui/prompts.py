@@ -425,69 +425,19 @@ class ConfigCollector:
         print(f"\033[92m  ✓ 已选择 {len(final_skip)} 个模块跳过 / Selected {len(final_skip)} modules to skip\033[0m")
         return final_skip
 
-    def collect_tool_paths(
+    def collect_python_path(
         self,
-        current_make: Optional[Path] = None,
-        current_perl: Optional[Path] = None,
         current_python: Optional[Path] = None
-    ) -> Tuple[Optional[Path], Optional[Path], Optional[Path]]:
-        """Collect tool paths with selection and input / 收集工具路径"""
-        self._print_header("构建工具配置 / Build Tools Configuration")
+    ) -> Optional[Path]:
+        """Collect Python path with selection and input / 收集 Python 路径"""
+        self._print_header("Python 配置 / Python Configuration")
 
-        print("构建Qt需要MinGW (mingw32-make)、Perl和Python。")
-        print("MinGW路径应包含gcc/g++编译器。")
-        print("Python用于QML编译。")
-        print()
-        print("MinGW (mingw32-make), Perl and Python are required for building Qt.")
-        print("The make path should contain gcc/g++ compilers.")
-        print("Python is required for QML compilation.")
+        print("Python用于QML编译，默认使用系统Python。")
+        print("Python is required for QML compilation, system Python is used by default.")
         print()
 
-        make_path = current_make
-        perl_path = current_perl
         python_path = current_python
 
-        # MinGW configuration
-        if current_make:
-            print(f"当前MinGW / Current MinGW: {current_make}")
-
-        config_mingw = questionary.confirm(
-            "配置MinGW路径? / Configure MinGW path?",
-            default=current_make is None,
-            style=CUSTOM_STYLE,
-        ).ask()
-
-        if config_mingw is None:
-            raise KeyboardInterrupt("用户取消安装 / Installation cancelled by user")
-
-        if config_mingw:
-            make_path = self._collect_tool_path(
-                "MinGW (mingw32-make)",
-                current_make
-            )
-
-        # Perl configuration
-        print()
-        if current_perl:
-            print(f"当前Perl / Current Perl: {current_perl}")
-
-        config_perl = questionary.confirm(
-            "配置Perl路径? / Configure Perl path?",
-            default=current_perl is None,
-            style=CUSTOM_STYLE,
-        ).ask()
-
-        if config_perl is None:
-            raise KeyboardInterrupt("用户取消安装 / Installation cancelled by user")
-
-        if config_perl:
-            perl_path = self._collect_tool_path(
-                "Perl",
-                current_perl
-            )
-
-        # Python configuration
-        print()
         if current_python:
             print(f"当前Python / Current Python: {current_python}")
         else:
@@ -508,7 +458,7 @@ class ConfigCollector:
                 current_python
             )
 
-        return make_path, perl_path, python_path
+        return python_path
 
     def _collect_tool_path(
         self,
@@ -589,10 +539,6 @@ class ConfigCollector:
             ("并行任务 / Parallel Jobs", str(config.parallel_jobs)),
         ]
 
-        if config.make_path:
-            items.append(("Make路径 / Make Path", str(config.make_path)))
-        if config.perl_path:
-            items.append(("Perl路径 / Perl Path", str(config.perl_path)))
         if config.python_path:
             items.append(("Python路径 / Python Path", str(config.python_path)))
 
@@ -625,7 +571,7 @@ class ConfigCollector:
                 questionary.Choice(f"Qt版本 / Qt Version:          {config.qt_version} ({config.version_source})", value="5"),
                 questionary.Choice(f"构建类型 / Build Type:          {config.build_type}", value="6"),
                 questionary.Choice(f"并行任务 / Parallel Jobs:       {config.parallel_jobs}", value="7"),
-                questionary.Choice(f"工具路径(MinGW/Perl/Python) / Tool Paths", value="8"),
+                questionary.Choice(f"Python路径 / Python Path:       {config.python_path or '系统Python / System Python'}", value="8"),
                 questionary.Choice(f"跳过模块 / Skip Modules:        {len(config.skip_modules)} 个模块 / modules", value="9"),
                 questionary.Choice("─" * 40, value="separator", disabled=True),
                 questionary.Choice("✓ 完成 - 返回确认 / Done - Return to confirmation", value="done"),
@@ -678,9 +624,7 @@ class ConfigCollector:
                     default=config.parallel_jobs
                 )
             elif response == "8":
-                config.make_path, config.perl_path, config.python_path = self.collect_tool_paths(
-                    current_make=config.make_path,
-                    current_perl=config.perl_path,
+                config.python_path = self.collect_python_path(
                     current_python=config.python_path
                 )
             elif response == "9":
@@ -699,15 +643,13 @@ class ConfigCollector:
         print()
         print("本工具将帮助您安装鸿蒙版Qt:")
         print("  1. 收集必要的路径和配置")
-        print("  2. 下载所需工具 (make, perl)")
-        print("  3. 配置构建环境")
-        print("  4. 编译并安装Qt")
+        print("  2. 配置构建环境 (内置make和perl工具)")
+        print("  3. 编译并安装Qt")
         print()
         print("This tool will help you install Qt for HarmonyOS by:")
         print("  1. Collecting necessary paths and configurations")
-        print("  2. Downloading required tools (make, perl)")
-        print("  3. Configuring build environment")
-        print("  4. Compiling and installing Qt")
+        print("  2. Configuring build environment (bundled make and perl)")
+        print("  3. Compiling and installing Qt")
         print()
         print("\033[93m前置条件 / Prerequisites:\033[0m")
         print("  • Python >= 3.12")
@@ -808,8 +750,8 @@ class ConfigCollector:
         build_type = self.collect_build_type()
         parallel_jobs = self.collect_parallel_jobs()
 
-        # Collect tool paths
-        make_path, perl_path, python_path = self.collect_tool_paths()
+        # Collect Python path (optional)
+        python_path = self.collect_python_path()
 
         # Get default skip modules for selected version
         skip_modules = get_default_skip_modules(qt_version)
@@ -845,8 +787,6 @@ class ConfigCollector:
             build_type=build_type,
             parallel_jobs=parallel_jobs,
             skip_modules=skip_modules,
-            make_path=make_path,
-            perl_path=perl_path,
             python_path=python_path,
             version_source=version_source
         )

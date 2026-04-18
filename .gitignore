@@ -34,11 +34,15 @@ ENV/
 *.swo
 *~
 
-# Tools - bundled tools are included
+# Tools - archives are included, extracted files are excluded
+/tools/llvm-mingw/
+/tools/perl/
+/tools/make/
 /tools/*.zip
 /tools/*.tar.gz
 /tools/*.7z
-/tools/make/
+!tools/archives/
+!tools/archives/*.zip
 src/tools/__pycache__/
 
 # Logs

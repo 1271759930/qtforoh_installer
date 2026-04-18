@@ -18,11 +18,7 @@ class InstallConfig:
     build_type: str = "release"
     parallel_jobs: int = 8
     skip_modules: List[str] = field(default_factory=list)
-    # Tool paths (optional)
-    make_path: Optional[Path] = None
-    perl_path: Optional[Path] = None
     python_path: Optional[Path] = None
-    # Version detection source
     version_source: str = "default"
 
     def to_dict(self) -> dict:
@@ -36,8 +32,6 @@ class InstallConfig:
             "build_type": self.build_type,
             "parallel_jobs": self.parallel_jobs,
             "skip_modules": self.skip_modules,
-            "make_path": str(self.make_path) if self.make_path else None,
-            "perl_path": str(self.perl_path) if self.perl_path else None,
             "python_path": str(self.python_path) if self.python_path else None,
             "version_source": self.version_source,
         }
@@ -45,8 +39,6 @@ class InstallConfig:
     @classmethod
     def from_dict(cls, data: dict) -> "InstallConfig":
         """Create from dictionary"""
-        make_path = data.get("make_path")
-        perl_path = data.get("perl_path")
         python_path = data.get("python_path")
 
         return cls(
@@ -58,8 +50,6 @@ class InstallConfig:
             build_type=data.get("build_type", "release"),
             parallel_jobs=data.get("parallel_jobs", 8),
             skip_modules=data.get("skip_modules", []),
-            make_path=Path(make_path) if make_path else None,
-            perl_path=Path(perl_path) if perl_path else None,
             python_path=Path(python_path) if python_path else None,
             version_source=data.get("version_source", "default"),
         )

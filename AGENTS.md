@@ -29,6 +29,8 @@ python scripts/download_tools.py
 
 This downloads ~200MB of tools. After that, users don't need to separately install make or perl.
 
+**No tool path configuration required** - bundled tools are automatically detected and used. Only Python path can be optionally configured for QML compilation.
+
 ## Windows Build Specifics
 
 Windows builds use generated batch scripts (`build_qt_ohos.bat`) instead of direct subprocess calls. This is critical to:

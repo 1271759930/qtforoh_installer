@@ -25,19 +25,12 @@ BUNDLED_PERL_DIR = BUNDLED_TOOLS_DIR / "perl"
 
 
 class ToolDownloader:
-    """Download and setup required tools - Supports bundled tools first"""
+    """Download and setup required tools - Uses bundled tools"""
 
-    def __init__(self, tools_dir: Path, tool_config: ToolConfig,
-                 make_path: Optional[Path] = None, perl_path: Optional[Path] = None):
+    def __init__(self, tools_dir: Path, tool_config: ToolConfig):
         self.tools_dir = tools_dir
         self.tool_config = tool_config
         self.console = Console()
-        self.make_path = tools_dir / "make"
-        self.perl_path = tools_dir / "perl"
-
-        # Store configured tool paths
-        self.configured_make_path = make_path
-        self.configured_perl_path = perl_path
 
         # Bundled tools paths
         self.bundled_mingw_bin = BUNDLED_LLVM_MINGW_DIR / "bin"
@@ -45,8 +38,6 @@ class ToolDownloader:
         self.bundled_perl_bin_alt = BUNDLED_PERL_DIR / "bin"
 
         ensure_directory(self.tools_dir)
-        ensure_directory(self.make_path)
-        ensure_directory(self.perl_path)
 
     def check_existing_tools(self) -> Tuple[bool, bool, bool]:
         """
@@ -68,11 +59,6 @@ class ToolDownloader:
 
     def _check_make(self) -> bool:
         """Check if make is available - Bundled tools first"""
-        # First check user configured path
-        if self.configured_make_path and self.configured_make_path.exists():
-            self.console.print(f"[green]✓ Using configured make: {self.configured_make_path}[/green]")
-            return True
-
         # Check bundled llvm-mingw tools
         if is_windows():
             bundled_make = self.bundled_mingw_bin / "mingw32-make.exe"
@@ -88,20 +74,10 @@ class ToolDownloader:
         if shutil.which("make"):
             return True
 
-        # Check if make is in tools directory
-        make_exe = self.make_path / "make.exe" if is_windows() else self.make_path / "make"
-        if make_exe.exists():
-            return True
-
         return False
 
     def _check_perl(self) -> bool:
         """Check if perl is available - Bundled tools first"""
-        # First check user configured path
-        if self.configured_perl_path and self.configured_perl_path.exists():
-            self.console.print(f"[green]✓ Using configured perl: {self.configured_perl_path}[/green]")
-            return True
-
         # Check bundled Perl tools
         if is_windows():
             bundled_perl = self.bundled_perl_bin / "perl.exe"
@@ -115,15 +91,6 @@ class ToolDownloader:
 
         # Check if perl is in PATH
         if shutil.which("perl"):
-            return True
-
-        # Check if perl is in tools directory
-        if is_windows():
-            perl_exe = self.perl_path / "perl" / "bin" / "perl.exe"
-        else:
-            perl_exe = self.perl_path / "perl" / "bin" / "perl"
-
-        if perl_exe.exists():
             return True
 
         return False
@@ -144,20 +111,6 @@ class ToolDownloader:
         # Check if mingw32-make is in PATH (indicates MinGW installation)
         if is_windows() and shutil.which("mingw32-make"):
             return True
-
-        # Check configured make path - if user set make path, gcc should be in same directory
-        if self.configured_make_path and self.configured_make_path.exists():
-            make_path = Path(self.configured_make_path)
-            if make_path.is_file():
-                bin_dir = make_path.parent
-            elif make_path.name.lower() == "bin":
-                bin_dir = make_path
-            else:
-                bin_dir = make_path / "bin"
-
-            gcc_exe = bin_dir / "gcc.exe" if is_windows() else bin_dir / "gcc"
-            if gcc_exe.exists():
-                return True
 
         return False
 
@@ -393,7 +346,6 @@ class ToolDownloader:
                     timeout=10
                 )
                 if result.returncode == 0:
-                    # Extract version from output
                     version_info = "available"
                     for line in (result.stdout + result.stderr).split('\n')[:5]:
                         if 'version' in line.lower() or 'v' in line.lower():
@@ -407,22 +359,14 @@ class ToolDownloader:
         else:
             errors.append("perl not found")
 
-        # Check gcc
-        gcc_cmd = shutil.which("gcc")
-        if not gcc_cmd and is_windows():
-            # Try to find gcc in the same directory as configured make
-            if self.configured_make_path and self.configured_make_path.exists():
-                make_path = Path(self.configured_make_path)
-                if make_path.is_file():
-                    bin_dir = make_path.parent
-                elif make_path.name.lower() == "bin":
-                    bin_dir = make_path
-                else:
-                    bin_dir = make_path / "bin"
-
-                gcc_exe = bin_dir / "gcc.exe"
-                if gcc_exe.exists():
-                    gcc_cmd = str(gcc_exe)
+        # Check gcc (from bundled tools or PATH)
+        gcc_cmd = None
+        if is_windows():
+            bundled_gcc = self.bundled_mingw_bin / "gcc.exe"
+            if bundled_gcc.exists():
+                gcc_cmd = str(bundled_gcc)
+        if not gcc_cmd:
+            gcc_cmd = shutil.which("gcc")
 
         if gcc_cmd:
             try:
@@ -465,7 +409,7 @@ class ToolDownloader:
                 self.console.print("[green]✓ MinGW toolchain (gcc/g++) is available[/green]")
             else:
                 self.console.print("[yellow]⚠ MinGW gcc not detected - host tools may use MSVC[/yellow]")
-                self.console.print("[yellow]  Please install MinGW and configure make_path to fix this[/yellow]")
+                self.console.print("[yellow]  Run 'python scripts/download_tools.py' to download bundled tools[/yellow]")
             return True, mingw_ok
 
         self.console.print("\n[yellow]Some tools are missing. Downloading...[/yellow]")
@@ -497,11 +441,6 @@ class ToolDownloader:
         if is_windows() and shutil.which("mingw32-make"):
             return "mingw32-make"
 
-        # Check tools directory
-        make_exe = self.make_path / "make.exe" if is_windows() else self.make_path / "make"
-        if make_exe.exists():
-            return str(make_exe)
-
         return None
 
     def get_perl_command(self) -> Optional[str]:
@@ -518,15 +457,6 @@ class ToolDownloader:
         # Check PATH
         if shutil.which("perl"):
             return "perl"
-
-        # Check tools directory
-        if is_windows():
-            perl_exe = self.perl_path / "perl" / "bin" / "perl.exe"
-        else:
-            perl_exe = self.perl_path / "perl" / "bin" / "perl"
-
-        if perl_exe.exists():
-            return str(perl_exe)
 
         return None
 

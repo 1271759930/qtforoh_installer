@@ -28,11 +28,10 @@ install:
   # Recommended: number of CPU cores
   parallel_jobs: 8
 
-  # Tool paths (optional)
-  # If you have already installed make and perl, specify their paths here
-  # Leave as null to let the tool download/install automatically
-  make_path: null  # Example: "C:/Program Files/GnuWin32/bin/make.exe"
-  perl_path: null  # Example: "C:/Strawberry Perl/perl/bin/perl.exe"
+  # Python path (optional)
+  # If you need a specific Python version for QML compilation, specify here
+  # Leave as null to use system Python
+  python_path: null  # Example: "C:/Python312/python.exe"
 
   # Modules to skip (reduce build time)
   skip_modules:
@@ -75,13 +74,5 @@ install:
     - qtx11extras
     - doc
 
-tools:
-  # Make tool download URL (Windows)
-  make_url: "https://sourceforge.net/projects/mingw/files/MinGW/make/make-3.82.90/make-3.82.90-2-mingw32-bin.tar.lzma/download"
-  
-  # Perl download URL (Windows - Strawberry Perl)
-  perl_url: "https://strawberryperl.com/download/5.38.2.2/strawberry-perl-5.38.2.2-64bit.msi"
-  
-  # Tool versions
-  make_version: "3.82.90"
-  perl_version: "5.38.2.2"
+# Note: Build tools (llvm-mingw, Perl) are bundled in the tools/ directory
+# Run 'python scripts/download_tools.py' to download them before first use

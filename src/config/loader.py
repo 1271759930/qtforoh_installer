@@ -25,12 +25,6 @@ class ConfigManager:
 
         data = {
             "install": self.install_config.to_dict(),
-            "tools": {
-                "make_url": self.tool_config.make_url,
-                "perl_url": self.tool_config.perl_url,
-                "make_version": self.tool_config.make_version,
-                "perl_version": self.tool_config.perl_version,
-            }
         }
 
         with open(self.config_file, "w", encoding="utf-8") as f:
@@ -54,13 +48,6 @@ class ConfigManager:
                         self.install_config.qt_version
                     )
 
-                if "tools" in data:
-                    self.tool_config.make_url = data["tools"].get(
-                        "make_url", self.tool_config.make_url
-                    )
-                    self.tool_config.perl_url = data["tools"].get(
-                        "perl_url", self.tool_config.perl_url
-                    )
                 return True
         except Exception as e:
             print(f"Failed to load config: {e}")
@@ -76,8 +63,6 @@ class ConfigManager:
         qt_version: str = "5.15.16",
         build_type: str = "release",
         parallel_jobs: int = 8,
-        make_path: Optional[Path] = None,
-        perl_path: Optional[Path] = None,
         python_path: Optional[Path] = None,
         version_source: str = "default",
     ) -> InstallConfig:
@@ -93,8 +78,6 @@ class ConfigManager:
             build_type=build_type,
             parallel_jobs=parallel_jobs,
             skip_modules=skip_modules,
-            make_path=make_path,
-            perl_path=perl_path,
             python_path=python_path,
             version_source=version_source,
         )

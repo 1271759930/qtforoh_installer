@@ -77,11 +77,7 @@ This tool will help you install Qt for HarmonyOS by:
         table.add_row("构建类型 / Build Type", config.build_type)
         table.add_row("并行任务 / Parallel Jobs", str(config.parallel_jobs))
 
-        # Show tool paths if configured
-        if config.make_path:
-            table.add_row("Make路径 / Make Path", str(config.make_path))
-        if config.perl_path:
-            table.add_row("Perl路径 / Perl Path", str(config.perl_path))
+        # Show Python path if configured
         if config.python_path:
             table.add_row("Python路径 / Python Path", str(config.python_path))
 

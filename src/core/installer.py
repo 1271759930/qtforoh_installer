@@ -159,35 +159,113 @@ class QtHarmonyInstaller:
     def setup_tools(self) -> bool:
         """Setup required tools - Step 4 / 设置所需工具 - 步骤4"""
         tools_dir = self.workspace / "tools"
-        config = self.config_manager.install_config
+        archives_dir = tools_dir / "archives"
 
         self.downloader = ToolDownloader(
             tools_dir,
-            self.config_manager.tool_config,
-            make_path=config.make_path if config else None,
-            perl_path=config.perl_path if config else None
+            self.config_manager.tool_config
         )
 
-        tools_ok, mingw_ok = self.downloader.ensure_tools_available()
+        # Check if tools exist, if not, try to extract from archives
+        make_ok, perl_ok, mingw_ok = self.downloader.check_existing_tools()
 
-        if tools_ok:
+        if not (make_ok and perl_ok):
+            self.display.print("\n[cyan]检查本地工具压缩包... / Checking local archives...[/cyan]")
+
+            if archives_dir.exists():
+                self.display.print(f"  压缩包目录 / Archives directory: {archives_dir}")
+
+                llvm_archive = archives_dir / "llvm-mingw-20240917-ucrt-x86_64.zip"
+                perl_archive = archives_dir / "strawberry-perl-5.42.2.1-64bit-portable.zip"
+
+                if llvm_archive.exists() or perl_archive.exists():
+                    self.display.print("[cyan]从本地压缩包解压工具... / Extracting from local archives...[/cyan]")
+
+                    import zipfile
+
+                    llvm_mingw_dir = tools_dir / "llvm-mingw"
+                    perl_dir = tools_dir / "perl"
+
+                    # Extract llvm-mingw
+                    if llvm_archive.exists() and not llvm_mingw_dir.exists():
+                        self._extract_archive(llvm_archive, llvm_mingw_dir, "llvm-mingw")
+
+                    # Extract Perl
+                    if perl_archive.exists() and not perl_dir.exists():
+                        self._extract_archive(perl_archive, perl_dir, "Perl")
+
+                    # Re-check after extraction
+                    make_ok, perl_ok, mingw_ok = self.downloader.check_existing_tools()
+
+        if make_ok and perl_ok:
             self.display.show_success("所有所需工具已就绪 / All required tools are ready")
 
             if not mingw_ok:
                 self.display.show_warning(
-                    "PATH中未检测到MinGW (gcc/g++) / MinGW (gcc/g++) not detected in PATH. "
-                    "Host工具可能使用MSVC / Host tools may use MSVC instead."
+                    "PATH中未检测到MinGW (gcc/g++) / MinGW (gcc/g++) not detected in PATH."
                 )
                 self.display.print(
-                    "[yellow]  建议配置make路径到包含gcc/g++的MinGW目录 "
-                    "/ Consider configuring make path to MinGW directory "
-                    "which contains gcc/g++.[/yellow]"
+                    "[yellow]  请确保 tools/archives/ 目录包含压缩包 "
+                    "/ Ensure tools/archives/ contains the archives.[/yellow]"
                 )
 
             return True
         else:
             self.display.show_error("某些所需工具缺失 / Some required tools are missing")
-            self.display.print("  [yellow]构建Qt需要Make和Perl / Make and Perl are required for building Qt[/yellow]")
+            self.display.print("  [yellow]请运行 python scripts/download_tools.py 准备工具[/yellow]")
+            self.display.print("  [yellow]Run 'python scripts/download_tools.py' to setup tools[/yellow]")
+            return False
+
+    def _extract_archive(self, archive_path: Path, target_dir: Path, tool_name: str) -> bool:
+        """Extract a zip archive"""
+        import zipfile
+
+        self.display.print(f"\n[cyan]解压 {tool_name} / Extracting {tool_name}[/cyan]")
+        self.display.print(f"  源文件 / Source: {archive_path}")
+
+        try:
+            with zipfile.ZipFile(archive_path, 'r') as zf:
+                members = zf.namelist()
+
+                root_folder = None
+                for name in members[:10]:
+                    if '/' in name:
+                        potential_root = name.split('/')[0]
+                        break
+
+                target_dir.mkdir(parents=True, exist_ok=True)
+
+                for member in members:
+                    if root_folder:
+                        if member == root_folder:
+                            continue
+                        if member.startswith(root_folder + '/'):
+                            member = member[len(root_folder) + 1:]
+
+                    if not member:
+                        continue
+
+                    target_path = target_dir / member
+
+                    if member.endswith('/'):
+                        target_path.mkdir(parents=True, exist_ok=True)
+                    else:
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        actual_member = root_folder + '/' + member if root_folder else member
+                        try:
+                            with zf.open(actual_member) as src:
+                                with open(target_path, 'wb') as dst:
+                                    dst.write(src.read())
+                        except KeyError:
+                            with zf.open(member) as src:
+                                with open(target_path, 'wb') as dst:
+                                    dst.write(src.read())
+
+            self.display.print(f"  [green]✓ {tool_name} 解压完成 / Extraction completed[/green]")
+            return True
+
+        except Exception as e:
+            self.display.print(f"  [red]✗ 解压失败 / Extraction failed: {e}[/red]")
             return False
 
     def setup_environment(self) -> bool:

@@ -72,7 +72,7 @@ def test_collector_creation():
     # Check methods exist
     methods = ['collect_qt_source_path', 'collect_harmony_sdk_path',
                'collect_install_path', 'collect_architecture', 'collect_build_type',
-               'collect_parallel_jobs', 'collect_tool_paths', 'confirm_configuration',
+               'collect_parallel_jobs', 'collect_python_path', 'confirm_configuration',
                'collect_all', 'show_welcome', '_modify_config_menu']
 
     missing = []

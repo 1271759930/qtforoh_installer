@@ -87,14 +87,8 @@ class EnvironmentManager:
         # CRITICAL: Reset PATH first to avoid MSVC pollution
         self.reset_path_to_minimum()
 
-        # Set tool roots from user config or bundled tools
+        # Set tool roots from bundled tools
         self._set_windows_tool_roots()
-
-        # Build tool paths: bundled tools first, then user config
-        custom_tool_path = self._build_windows_tool_path()
-        if custom_tool_path:
-            current_path = self.env_vars.get("PATH", "")
-            self.env_vars["PATH"] = f"{custom_tool_path};{current_path}"
 
         # Add bundled llvm-mingw to PATH if available
         if self.bundled_mingw_bin.exists():
@@ -122,33 +116,13 @@ class EnvironmentManager:
             self.env_vars["PATH"] = f"{llvm_bin};{current_path}"
 
     def _set_windows_tool_roots(self) -> None:
-        """Set MINGW_ROOT/PERL_ROOT/PYTHON_ROOT from user-configured tool paths or bundled tools."""
-        # Make/MinGW path - user config or bundled
-        make_path = self.config.make_path
-        if make_path:
-            make_path = Path(make_path)
-            if make_path.is_file():
-                mingw_bin = make_path.parent
-            elif make_path.name.lower() == "bin":
-                mingw_bin = make_path
-            else:
-                mingw_bin = make_path / "bin"
-            self.env_vars["MINGW_ROOT"] = str(mingw_bin)
-        elif self.bundled_mingw_bin.exists():
+        """Set MINGW_ROOT/PERL_ROOT/PYTHON_ROOT from bundled tools or user config."""
+        # MinGW - bundled tools only
+        if self.bundled_mingw_bin.exists():
             self.env_vars["MINGW_ROOT"] = str(self.bundled_mingw_bin)
 
-        # Perl path - user config or bundled
-        perl_path = self.config.perl_path
-        if perl_path:
-            perl_path = Path(perl_path)
-            if perl_path.is_file():
-                perl_bin = perl_path.parent
-            elif perl_path.name.lower() == "bin":
-                perl_bin = perl_path
-            else:
-                perl_bin = perl_path / "bin"
-            self.env_vars["PERL_ROOT"] = str(perl_bin)
-        elif self.bundled_perl_bin.exists():
+        # Perl - bundled tools only
+        if self.bundled_perl_bin.exists():
             self.env_vars["PERL_ROOT"] = str(self.bundled_perl_bin.parent.parent)
         elif self.bundled_perl_bin_alt.exists():
             self.env_vars["PERL_ROOT"] = str(self.bundled_perl_bin_alt.parent)
@@ -199,58 +173,6 @@ class EnvironmentManager:
             if str(current_python_dir) not in current_path:
                 # Add Python to PATH if not already there
                 self.env_vars["PATH"] = f"{current_python_dir};{current_path}"
-
-    def _build_windows_tool_path(self) -> str:
-        """Build custom PATH entries from user-provided make/perl paths."""
-        entries = []
-
-        # Make root path
-        make_path = self.config.make_path
-        if make_path:
-            make_path = Path(make_path)
-            if make_path.is_file():
-                make_root = (
-                    make_path.parent.parent
-                    if make_path.parent.name.lower() == "bin"
-                    else make_path.parent
-                )
-            elif make_path.name.lower() == "bin":
-                make_root = make_path.parent
-            else:
-                make_root = make_path
-
-            entries.extend([
-                str(make_root / "bin"),
-                str(make_root),
-            ])
-
-        # Perl bin path
-        perl_path = self.config.perl_path
-        if perl_path:
-            perl_path = Path(perl_path)
-            perl_bin = perl_path.parent if perl_path.is_file() else perl_path
-
-            if perl_bin.name.lower() == "perl":
-                perl_bin = perl_bin / "bin"
-
-            entries.append(str(perl_bin))
-
-            perl_root = perl_bin.parent if perl_bin.name.lower() == "bin" else perl_bin
-            entries.append(str(perl_root / "site" / "bin"))
-
-            strawberry_root = perl_root.parent
-            entries.append(str(strawberry_root / "c" / "bin"))
-
-        # Deduplicate
-        deduped = []
-        seen = set()
-        for item in entries:
-            key = item.lower()
-            if key not in seen:
-                seen.add(key)
-                deduped.append(item)
-
-        return ";".join(deduped)
 
     def _setup_unix_environment(self) -> None:
         """Setup Unix-specific environment (macOS/Linux)"""

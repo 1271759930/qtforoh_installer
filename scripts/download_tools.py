@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Pre-download tools for Qt HarmonyOS Installer
+Tool extractor/downloader for Qt HarmonyOS Installer
 
-This script downloads and extracts llvm-mingw and Strawberry Perl
-into the tools directory, so users don't need to download them separately.
+This script:
+1. First checks for zip archives in tools/archives/ and extracts them
+2. If archives not found, downloads them from the internet
 
 Usage:
     python scripts/download_tools.py
 
 After running this script, the tools will be available in:
     tools/llvm-mingw/bin/mingw32-make.exe
-    tools/perl/bin/perl.exe
+    tools/perl/perl/bin/perl.exe
 """
 
 import sys
@@ -21,44 +22,26 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-# Fix encoding for Windows
 if sys.platform == "win32":
     if sys.stdout.encoding != "utf-8":
         sys.stdout.reconfigure(encoding="utf-8")
     if sys.stderr.encoding != "utf-8":
         sys.stderr.reconfigure(encoding="utf-8")
 
-try:
-    import requests
-    from tqdm import tqdm
-except ImportError:
-    print("Installing required packages...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "requests", "tqdm", "-q"])
-    import requests
-    from tqdm import tqdm
-
-
 PROJECT_ROOT = Path(__file__).parent.parent
 TOOLS_DIR = PROJECT_ROOT / "tools"
+ARCHIVES_DIR = TOOLS_DIR / "archives"
 LLVM_MINGW_DIR = TOOLS_DIR / "llvm-mingw"
 PERL_DIR = TOOLS_DIR / "perl"
 
-# Tool versions and URLs
-LLVM_MINGW_VERSION = "20240917"  # Use stable version
-LLVM_MINGW_URL = (
-    f"https://github.com/mstorsjo/llvm-mingw/releases/download/"
-    f"{LLVM_MINGW_VERSION}/llvm-mingw-{LLVM_MINGW_VERSION}-ucrt-x86_64.zip"
-)
+LLVM_MINGW_ARCHIVE = ARCHIVES_DIR / "llvm-mingw-20240917-ucrt-x86_64.zip"
+PERL_ARCHIVE = ARCHIVES_DIR / "strawberry-perl-5.42.2.1-64bit-portable.zip"
 
-PERL_VERSION = "5.42.2.1"
-PERL_URL = (
-    "https://github.com/StrawberryPerl/Perl-Dist-Strawberry/releases/download/"
-    f"SP_54221_64bit/strawberry-perl-{PERL_VERSION}-64bit-portable.zip"
-)
+LLVM_MINGW_URL = "https://github.com/mstorsjo/llvm-mingw/releases/download/20240917/llvm-mingw-20240917-ucrt-x86_64.zip"
+PERL_URL = "https://github.com/StrawberryPerl/Perl-Dist-Strawberry/releases/download/SP_54221_64bit/strawberry-perl-5.42.2.1-64bit-portable.zip"
 
 
 def format_size(size_bytes: int) -> str:
-    """Format size in bytes to human readable string"""
     for unit in ["B", "KB", "MB", "GB"]:
         if size_bytes < 1024.0:
             return f"{size_bytes:.2f} {unit}"
@@ -66,11 +49,88 @@ def format_size(size_bytes: int) -> str:
     return f"{size_bytes:.2f} TB"
 
 
+def extract_zip(zip_path: Path, target_dir: Path, tool_name: str) -> bool:
+    """Extract a zip file"""
+    print(f"\n解压 {tool_name} / Extracting {tool_name}")
+    print(f"  源文件 / Source: {zip_path}")
+    print(f"  目标目录 / Target: {target_dir}")
+
+    if not zip_path.exists():
+        print(f"  [错误] 压缩包不存在 / [ERROR] Archive not found")
+        return False
+
+    zip_size = zip_path.stat().st_size
+    print(f"  压缩包大小 / Archive size: {format_size(zip_size)}")
+
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            members = zf.namelist()
+            print(f"  文件数量 / Files: {len(members)}")
+
+            root_folder = None
+            for name in members[:10]:
+                if '/' in name:
+                    potential_root = name.split('/')[0]
+                    if all(m.startswith(potential_root + '/') or m == potential_root for m in members[:100]):
+                        root_folder = potential_root
+                        break
+
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            print(f"  正在解压... / Extracting...")
+            for member in members:
+                if root_folder:
+                    if member == root_folder:
+                        continue
+                    if member.startswith(root_folder + '/'):
+                        member = member[len(root_folder) + 1:]
+                    elif member.startswith(root_folder):
+                        member = member[len(root_folder):]
+
+                if not member:
+                    continue
+
+                target_path = target_dir / member
+
+                if member.endswith('/'):
+                    target_path.mkdir(parents=True, exist_ok=True)
+                else:
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    actual_member = root_folder + '/' + member if root_folder else member
+                    try:
+                        with zf.open(actual_member) as src:
+                            with open(target_path, 'wb') as dst:
+                                dst.write(src.read())
+                    except KeyError:
+                        with zf.open(member) as src:
+                            with open(target_path, 'wb') as dst:
+                                dst.write(src.read())
+
+        print(f"  [成功] 解压完成 / [OK] Extraction completed")
+        return True
+
+    except zipfile.BadZipFile as e:
+        print(f"  [错误] 压缩包损坏 / [ERROR] Bad zip: {e}")
+        return False
+    except Exception as e:
+        print(f"  [错误] 解压失败 / [ERROR] Extraction failed: {e}")
+        return False
+
+
 def download_file(url: str, target_path: Path, description: str) -> bool:
     """Download a file with progress bar"""
-    print(f"\n{description}")
+    print(f"\n下载 {description} / Downloading {description}")
     print(f"  URL: {url}")
-    print(f"  Target: {target_path}")
+    print(f"  目标 / Target: {target_path}")
+
+    try:
+        import requests
+        from tqdm import tqdm
+    except ImportError:
+        print("  安装依赖... / Installing dependencies...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "requests", "tqdm", "-q"])
+        import requests
+        from tqdm import tqdm
 
     try:
         response = requests.get(url, stream=True, allow_redirects=True, timeout=60)
@@ -78,248 +138,127 @@ def download_file(url: str, target_path: Path, description: str) -> bool:
 
         total_size = int(response.headers.get("content-length", 0))
         if total_size > 0:
-            print(f"  Size: {format_size(total_size)}")
+            print(f"  文件大小 / Size: {format_size(total_size)}")
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(target_path, "wb") as f:
-            with tqdm(
-                total=total_size,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-                desc=target_path.name
-            ) as pbar:
+            with tqdm(total=total_size, unit="B", unit_scale=True, unit_divisor=1024, desc=target_path.name) as pbar:
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
                         pbar.update(len(chunk))
 
-        print(f"  Download completed: {target_path}")
+        print(f"  [成功] 下载完成 / [OK] Download completed")
         return True
 
-    except requests.RequestException as e:
-        print(f"  Download failed: {e}")
-        return False
     except Exception as e:
-        print(f"  Error: {e}")
+        print(f"  [错误] 下载失败 / [ERROR] Download failed: {e}")
         return False
 
 
-def extract_zip(zip_path: Path, target_dir: Path, description: str) -> bool:
-    """Extract a zip file"""
-    print(f"\n{description}")
-    print(f"  Source: {zip_path}")
-    print(f"  Target: {target_dir}")
-
-    try:
-        target_dir.mkdir(parents=True, exist_ok=True)
-
-        with zipfile.ZipFile(zip_path, 'r') as zf:
-            members = zf.namelist()
-
-            # Find the root folder in the zip (often the archive contains a single folder)
-            root_folder = None
-            for name in members:
-                if '/' in name:
-                    potential_root = name.split('/')[0]
-                    if all(m.startswith(potential_root + '/') or m == potential_root for m in members):
-                        root_folder = potential_root
-                        break
-
-            with tqdm(total=len(members), unit="files", desc="Extracting") as pbar:
-                for member in members:
-                    # Skip the root folder if found
-                    if root_folder:
-                        if member == root_folder:
-                            pbar.update(1)
-                            continue
-                        if member.startswith(root_folder + '/'):
-                            member = member[len(root_folder) + 1:]
-                        elif member.startswith(root_folder):
-                            member = member[len(root_folder):]
-
-                    if not member:
-                        pbar.update(1)
-                        continue
-
-                    target_path = target_dir / member
-
-                    if member.endswith('/'):
-                        target_path.mkdir(parents=True, exist_ok=True)
-                    else:
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
-                        with zf.open(zip_path.name if root_folder else member) as src:
-                            # Get actual member path in zip
-                            actual_member = root_folder + '/' + member if root_folder else member
-                            try:
-                                with zf.open(actual_member) as src:
-                                    with open(target_path, 'wb') as dst:
-                                        dst.write(src.read())
-                            except KeyError:
-                                # Try original member name
-                                with zf.open(member) as src:
-                                    with open(target_path, 'wb') as dst:
-                                        dst.write(src.read())
-
-                    pbar.update(1)
-
-        print(f"  Extraction completed: {target_dir}")
-        return True
-
-    except zipfile.BadZipFile as e:
-        print(f"  Bad zip file: {e}")
-        return False
-    except Exception as e:
-        print(f"  Extraction error: {e}")
-        return False
-
-
-def download_llvm_mingw() -> bool:
-    """Download and extract llvm-mingw"""
+def extract_llvm_mingw() -> bool:
+    """Extract or download llvm-mingw"""
     print("=" * 60)
-    print("Downloading llvm-mingw (UCRT version)")
+    print("llvm-mingw (UCRT)")
     print("=" * 60)
 
-    zip_path = TOOLS_DIR / f"llvm-mingw-{LLVM_MINGW_VERSION}-ucrt-x86_64.zip"
-
-    if LLVM_MINGW_DIR.exists() and (LLVM_MINGW_DIR / "bin" / "mingw32-make.exe").exists():
-        print(f"\n[SKIP] llvm-mingw already exists at {LLVM_MINGW_DIR}")
-        return True
-
-    if not download_file(LLVM_MINGW_URL, zip_path, "Downloading llvm-mingw"):
-        return False
-
-    if not extract_zip(zip_path, LLVM_MINGW_DIR, "Extracting llvm-mingw"):
-        return False
-
-    # Clean up zip file
-    zip_path.unlink()
-    print(f"  Cleaned up: {zip_path}")
-
-    # Verify extraction
     make_exe = LLVM_MINGW_DIR / "bin" / "mingw32-make.exe"
-    gcc_exe = LLVM_MINGW_DIR / "bin" / "gcc.exe"
-
     if make_exe.exists():
-        print(f"  [OK] mingw32-make.exe: {make_exe}")
-    else:
-        print(f"  [ERROR] mingw32-make.exe not found")
-        return False
+        print(f"\n[跳过] llvm-mingw 已存在 / [SKIP] Already exists: {LLVM_MINGW_DIR}")
+        return True
 
-    if gcc_exe.exists():
-        print(f"  [OK] gcc.exe: {gcc_exe}")
-    else:
-        print(f"  [ERROR] gcc.exe not found")
-        return False
+    if LLVM_MINGW_ARCHIVE.exists():
+        print(f"\n从本地压缩包解压 / Extracting from local archive")
+        return extract_zip(LLVM_MINGW_ARCHIVE, LLVM_MINGW_DIR, "llvm-mingw")
 
-    return True
+    print(f"\n本地压缩包不存在，从网络下载 / Local archive not found, downloading")
+    if download_file(LLVM_MINGW_URL, LLVM_MINGW_ARCHIVE, "llvm-mingw"):
+        return extract_zip(LLVM_MINGW_ARCHIVE, LLVM_MINGW_DIR, "llvm-mingw")
+
+    return False
 
 
-def download_perl() -> bool:
-    """Download and extract Strawberry Perl (portable edition)"""
+def extract_perl() -> bool:
+    """Extract or download Perl"""
     print("=" * 60)
-    print("Downloading Strawberry Perl (Portable)")
+    print("Strawberry Perl (Portable)")
     print("=" * 60)
-
-    zip_path = TOOLS_DIR / f"strawberry-perl-{PERL_VERSION}-64bit-portable.zip"
 
     perl_exe = PERL_DIR / "perl" / "bin" / "perl.exe"
-    if PERL_DIR.exists() and perl_exe.exists():
-        print(f"\n[SKIP] Perl already exists at {PERL_DIR}")
+    if perl_exe.exists():
+        print(f"\n[跳过] Perl 已存在 / [SKIP] Already exists: {PERL_DIR}")
         return True
 
-    if not download_file(PERL_URL, zip_path, "Downloading Strawberry Perl"):
-        return False
+    if PERL_ARCHIVE.exists():
+        print(f"\n从本地压缩包解压 / Extracting from local archive")
+        return extract_zip(PERL_ARCHIVE, PERL_DIR, "Perl")
 
-    if not extract_zip(zip_path, PERL_DIR, "Extracting Strawberry Perl"):
-        return False
+    print(f"\n本地压缩包不存在，从网络下载 / Local archive not found, downloading")
+    if download_file(PERL_URL, PERL_ARCHIVE, "Perl"):
+        return extract_zip(PERL_ARCHIVE, PERL_DIR, "Perl")
 
-    # Clean up zip file
-    zip_path.unlink()
-    print(f"  Cleaned up: {zip_path}")
-
-    # Verify extraction
-    if perl_exe.exists():
-        print(f"  [OK] perl.exe: {perl_exe}")
-    else:
-        # Try alternative structure
-        alt_perl_exe = PERL_DIR / "bin" / "perl.exe"
-        if alt_perl_exe.exists():
-            print(f"  [OK] perl.exe: {alt_perl_exe}")
-        else:
-            print(f"  [ERROR] perl.exe not found")
-            return False
-
-    return True
+    return False
 
 
 def verify_tools() -> bool:
     """Verify all tools are properly installed"""
     print("\n" + "=" * 60)
-    print("Verifying Tools")
+    print("验证工具 / Verifying Tools")
     print("=" * 60)
 
     errors = []
 
-    # Check llvm-mingw
     make_exe = LLVM_MINGW_DIR / "bin" / "mingw32-make.exe"
     gcc_exe = LLVM_MINGW_DIR / "bin" / "gcc.exe"
-    gxx_exe = LLVM_MINGW_DIR / "bin" / "g++.exe"
+    perl_exe = PERL_DIR / "perl" / "bin" / "perl.exe"
 
     if make_exe.exists():
         print(f"  [OK] mingw32-make: {make_exe}")
     else:
-        errors.append("mingw32-make.exe not found")
+        errors.append("mingw32-make.exe 未找到")
 
     if gcc_exe.exists():
         print(f"  [OK] gcc: {gcc_exe}")
     else:
-        errors.append("gcc.exe not found")
-
-    if gxx_exe.exists():
-        print(f"  [OK] g++: {gxx_exe}")
-    else:
-        errors.append("g++.exe not found")
-
-    # Check Perl
-    perl_exe = PERL_DIR / "perl" / "bin" / "perl.exe"
-    alt_perl_exe = PERL_DIR / "bin" / "perl.exe"
+        errors.append("gcc.exe 未找到")
 
     if perl_exe.exists():
         print(f"  [OK] perl: {perl_exe}")
-    elif alt_perl_exe.exists():
-        print(f"  [OK] perl: {alt_perl_exe}")
     else:
-        errors.append("perl.exe not found")
+        alt_perl = PERL_DIR / "bin" / "perl.exe"
+        if alt_perl.exists():
+            print(f"  [OK] perl: {alt_perl}")
+        else:
+            errors.append("perl.exe 未找到")
 
     if errors:
-        print(f"\n[ERROR] Verification failed: {', '.join(errors)}")
+        print(f"\n[错误] 验证失败: {', '.join(errors)}")
         return False
 
-    print("\n[SUCCESS] All tools verified successfully!")
+    print("\n[成功] 所有工具验证通过!")
     return True
 
 
 def main():
     """Main entry point"""
     print("=" * 60)
-    print("Qt HarmonyOS Installer - Tools Downloader")
+    print("Qt HarmonyOS Installer - 工具准备")
+    print("Qt HarmonyOS Installer - Tools Setup")
     print("=" * 60)
-    print(f"Project root: {PROJECT_ROOT}")
-    print(f"Tools directory: {TOOLS_DIR}")
+    print(f"项目根目录 / Project root: {PROJECT_ROOT}")
+    print(f"工具目录 / Tools directory: {TOOLS_DIR}")
+    print(f"压缩包目录 / Archives directory: {ARCHIVES_DIR}")
 
-    # Create directories
     TOOLS_DIR.mkdir(parents=True, exist_ok=True)
-    LLVM_MINGW_DIR.mkdir(parents=True, exist_ok=True)
-    PERL_DIR.mkdir(parents=True, exist_ok=True)
+    ARCHIVES_DIR.mkdir(parents=True, exist_ok=True)
 
     all_ok = True
 
-    if not download_llvm_mingw():
+    if not extract_llvm_mingw():
         all_ok = False
 
-    if not download_perl():
+    if not extract_perl():
         all_ok = False
 
     if not verify_tools():
@@ -327,19 +266,18 @@ def main():
 
     print("\n" + "=" * 60)
     if all_ok:
-        print("[SUCCESS] All tools downloaded and verified!")
+        print("[成功] 所有工具已准备就绪!")
+        print("[SUCCESS] All tools ready!")
         print("=" * 60)
-        print("\nTools are now available at:")
+        print("\n工具位置 / Tools location:")
         print(f"  llvm-mingw: {LLVM_MINGW_DIR}")
         print(f"  Perl: {PERL_DIR}")
-        print("\nUsers can now run the installer without separate tool downloads.")
+        print("\n现在可以运行安装器 / You can now run the installer:")
+        print("  python run.py install")
     else:
-        print("[FAILED] Some tools failed to download or verify")
+        print("[失败] 工具准备失败")
+        print("[FAILED] Tools setup failed")
         print("=" * 60)
-        print("\nPlease check your network connection and try again.")
-        print("Alternatively, download manually:")
-        print(f"  llvm-mingw: {LLVM_MINGW_URL}")
-        print(f"  Perl: {PERL_URL}")
 
     return all_ok
 
