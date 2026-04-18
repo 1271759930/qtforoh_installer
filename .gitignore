@@ -34,12 +34,12 @@ ENV/
 *.swo
 *~
 
-# Tools (root directory only)
-/tools/
+# Tools - bundled tools are included
+/tools/*.zip
+/tools/*.tar.gz
+/tools/*.7z
+/tools/make/
 src/tools/__pycache__/
-*.zip
-*.tar.gz
-*.7z
 
 # Logs
 logs/

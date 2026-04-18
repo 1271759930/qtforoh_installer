@@ -1,5 +1,5 @@
 """
-Tool downloader module
+Tool downloader module - Supports bundled tools and system tools
 """
 
 import os
@@ -18,9 +18,14 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 from ..config import ToolConfig
 from ..utils import is_windows, run_command, ensure_directory, format_size
 
+# Bundled tools directory (relative to project root)
+BUNDLED_TOOLS_DIR = Path(__file__).parent.parent.parent / "tools"
+BUNDLED_LLVM_MINGW_DIR = BUNDLED_TOOLS_DIR / "llvm-mingw"
+BUNDLED_PERL_DIR = BUNDLED_TOOLS_DIR / "perl"
+
 
 class ToolDownloader:
-    """Download and setup required tools"""
+    """Download and setup required tools - Supports bundled tools first"""
 
     def __init__(self, tools_dir: Path, tool_config: ToolConfig,
                  make_path: Optional[Path] = None, perl_path: Optional[Path] = None):
@@ -31,9 +36,13 @@ class ToolDownloader:
         self.perl_path = tools_dir / "perl"
 
         # Store configured tool paths
-        # make_path should point to mingw32-make which is part of MinGW toolchain
         self.configured_make_path = make_path
         self.configured_perl_path = perl_path
+
+        # Bundled tools paths
+        self.bundled_mingw_bin = BUNDLED_LLVM_MINGW_DIR / "bin"
+        self.bundled_perl_bin = BUNDLED_PERL_DIR / "perl" / "bin"
+        self.bundled_perl_bin_alt = BUNDLED_PERL_DIR / "bin"
 
         ensure_directory(self.tools_dir)
         ensure_directory(self.make_path)
@@ -41,7 +50,12 @@ class ToolDownloader:
 
     def check_existing_tools(self) -> Tuple[bool, bool, bool]:
         """
-        Check if tools are already available
+        Check if tools are already available - Bundled tools first
+
+        Priority:
+        1. User configured paths
+        2. Bundled tools in project tools/ directory
+        3. System PATH
 
         Returns:
             Tuple of (make_available, perl_available, mingw_available)
@@ -53,18 +67,25 @@ class ToolDownloader:
         return make_available, perl_available, mingw_available
 
     def _check_make(self) -> bool:
-        """Check if make is available"""
-        # First check configured path
+        """Check if make is available - Bundled tools first"""
+        # First check user configured path
         if self.configured_make_path and self.configured_make_path.exists():
             self.console.print(f"[green]✓ Using configured make: {self.configured_make_path}[/green]")
             return True
 
-        # Check if make is in PATH
-        if shutil.which("make"):
-            return True
+        # Check bundled llvm-mingw tools
+        if is_windows():
+            bundled_make = self.bundled_mingw_bin / "mingw32-make.exe"
+            if bundled_make.exists():
+                self.console.print(f"[green]✓ Using bundled mingw32-make: {bundled_make}[/green]")
+                return True
 
         # Check if mingw32-make is in PATH (Windows)
         if is_windows() and shutil.which("mingw32-make"):
+            return True
+
+        # Check if make is in PATH
+        if shutil.which("make"):
             return True
 
         # Check if make is in tools directory
@@ -75,11 +96,22 @@ class ToolDownloader:
         return False
 
     def _check_perl(self) -> bool:
-        """Check if perl is available"""
-        # First check configured path
+        """Check if perl is available - Bundled tools first"""
+        # First check user configured path
         if self.configured_perl_path and self.configured_perl_path.exists():
             self.console.print(f"[green]✓ Using configured perl: {self.configured_perl_path}[/green]")
             return True
+
+        # Check bundled Perl tools
+        if is_windows():
+            bundled_perl = self.bundled_perl_bin / "perl.exe"
+            bundled_perl_alt = self.bundled_perl_bin_alt / "perl.exe"
+            if bundled_perl.exists():
+                self.console.print(f"[green]✓ Using bundled perl: {bundled_perl}[/green]")
+                return True
+            if bundled_perl_alt.exists():
+                self.console.print(f"[green]✓ Using bundled perl: {bundled_perl_alt}[/green]")
+                return True
 
         # Check if perl is in PATH
         if shutil.which("perl"):
@@ -97,14 +129,20 @@ class ToolDownloader:
         return False
 
     def _check_mingw(self) -> bool:
-        """Check if MinGW (gcc) is available"""
+        """Check if MinGW (gcc) is available - Bundled tools first"""
+        # Check bundled llvm-mingw first
+        if is_windows():
+            bundled_gcc = self.bundled_mingw_bin / "gcc.exe"
+            if bundled_gcc.exists():
+                self.console.print(f"[green]✓ Using bundled gcc: {bundled_gcc}[/green]")
+                return True
+
         # Check if gcc is in PATH
         if shutil.which("gcc"):
             return True
 
         # Check if mingw32-make is in PATH (indicates MinGW installation)
         if is_windows() and shutil.which("mingw32-make"):
-            # If mingw32-make is in PATH, gcc should also be available
             return True
 
         # Check configured make path - if user set make path, gcc should be in same directory
@@ -445,7 +483,14 @@ class ToolDownloader:
         return all_tools_ok, mingw_ok
 
     def get_make_command(self) -> Optional[str]:
-        """Get the make command to use"""
+        """Get the make command to use - Bundled tools first"""
+        # Check bundled llvm-mingw first (Windows)
+        if is_windows():
+            bundled_make = self.bundled_mingw_bin / "mingw32-make.exe"
+            if bundled_make.exists():
+                return str(bundled_make)
+
+        # Check PATH
         if shutil.which("make"):
             return "make"
 
@@ -460,7 +505,17 @@ class ToolDownloader:
         return None
 
     def get_perl_command(self) -> Optional[str]:
-        """Get the perl command to use"""
+        """Get the perl command to use - Bundled tools first"""
+        # Check bundled Perl first (Windows)
+        if is_windows():
+            bundled_perl = self.bundled_perl_bin / "perl.exe"
+            if bundled_perl.exists():
+                return str(bundled_perl)
+            bundled_perl_alt = self.bundled_perl_bin_alt / "perl.exe"
+            if bundled_perl_alt.exists():
+                return str(bundled_perl_alt)
+
+        # Check PATH
         if shutil.which("perl"):
             return "perl"
 
@@ -473,4 +528,18 @@ class ToolDownloader:
         if perl_exe.exists():
             return str(perl_exe)
 
+        return None
+
+    def get_bundled_mingw_path(self) -> Optional[Path]:
+        """Get the bundled MinGW bin directory"""
+        if self.bundled_mingw_bin.exists():
+            return self.bundled_mingw_bin
+        return None
+
+    def get_bundled_perl_path(self) -> Optional[Path]:
+        """Get the bundled Perl bin directory"""
+        if self.bundled_perl_bin.exists():
+            return self.bundled_perl_bin
+        if self.bundled_perl_bin_alt.exists():
+            return self.bundled_perl_bin_alt
         return None

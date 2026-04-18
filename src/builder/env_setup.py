@@ -10,6 +10,11 @@ from typing import Dict, Optional
 from ..config.schema import InstallConfig
 from ..utils import is_windows
 
+# Bundled tools directory (relative to project root)
+BUNDLED_TOOLS_DIR = Path(__file__).parent.parent.parent / "tools"
+BUNDLED_LLVM_MINGW_DIR = BUNDLED_TOOLS_DIR / "llvm-mingw"
+BUNDLED_PERL_DIR = BUNDLED_TOOLS_DIR / "perl"
+
 
 class EnvironmentManager:
     """Manage environment variables for Qt HarmonyOS build"""
@@ -17,6 +22,11 @@ class EnvironmentManager:
     def __init__(self, config: InstallConfig):
         self.config = config
         self.env_vars: Dict[str, str] = {}
+
+        # Bundled tools paths
+        self.bundled_mingw_bin = BUNDLED_LLVM_MINGW_DIR / "bin"
+        self.bundled_perl_bin = BUNDLED_PERL_DIR / "perl" / "bin"
+        self.bundled_perl_bin_alt = BUNDLED_PERL_DIR / "bin"
 
     def reset_path_to_minimum(self) -> None:
         """
@@ -73,17 +83,34 @@ class EnvironmentManager:
         return self.env_vars
 
     def _setup_windows_environment(self) -> None:
-        """Setup Windows-specific environment"""
+        """Setup Windows-specific environment - Bundled tools first"""
         # CRITICAL: Reset PATH first to avoid MSVC pollution
         self.reset_path_to_minimum()
 
+        # Set tool roots from user config or bundled tools
         self._set_windows_tool_roots()
 
-        # Build tool paths configured by user
+        # Build tool paths: bundled tools first, then user config
         custom_tool_path = self._build_windows_tool_path()
         if custom_tool_path:
             current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{custom_tool_path};{current_path}"
+
+        # Add bundled llvm-mingw to PATH if available
+        if self.bundled_mingw_bin.exists():
+            current_path = self.env_vars.get("PATH", "")
+            self.env_vars["PATH"] = f"{self.bundled_mingw_bin};{current_path}"
+            self.env_vars["MINGW_ROOT"] = str(self.bundled_mingw_bin)
+
+        # Add bundled Perl to PATH if available
+        if self.bundled_perl_bin.exists():
+            current_path = self.env_vars.get("PATH", "")
+            self.env_vars["PATH"] = f"{self.bundled_perl_bin};{current_path}"
+            self.env_vars["PERL_ROOT"] = str(self.bundled_perl_bin.parent.parent)
+        elif self.bundled_perl_bin_alt.exists():
+            current_path = self.env_vars.get("PATH", "")
+            self.env_vars["PATH"] = f"{self.bundled_perl_bin_alt};{current_path}"
+            self.env_vars["PERL_ROOT"] = str(self.bundled_perl_bin_alt.parent)
 
         # Add Python to PATH if configured
         self._setup_python_environment()
@@ -94,14 +121,9 @@ class EnvironmentManager:
             current_path = self.env_vars.get("PATH", "")
             self.env_vars["PATH"] = f"{llvm_bin};{current_path}"
 
-        # Add Perl to PATH if in tools directory
-        perl_bin = Path("tools") / "perl" / "perl" / "bin"
-        if perl_bin.exists():
-            current_path = self.env_vars.get("PATH", "")
-            self.env_vars["PATH"] = f"{perl_bin};{current_path}"
-
     def _set_windows_tool_roots(self) -> None:
-        """Set MINGW_ROOT/PERL_ROOT/PYTHON_ROOT from user-configured tool paths."""
+        """Set MINGW_ROOT/PERL_ROOT/PYTHON_ROOT from user-configured tool paths or bundled tools."""
+        # Make/MinGW path - user config or bundled
         make_path = self.config.make_path
         if make_path:
             make_path = Path(make_path)
@@ -112,7 +134,10 @@ class EnvironmentManager:
             else:
                 mingw_bin = make_path / "bin"
             self.env_vars["MINGW_ROOT"] = str(mingw_bin)
+        elif self.bundled_mingw_bin.exists():
+            self.env_vars["MINGW_ROOT"] = str(self.bundled_mingw_bin)
 
+        # Perl path - user config or bundled
         perl_path = self.config.perl_path
         if perl_path:
             perl_path = Path(perl_path)
@@ -123,7 +148,12 @@ class EnvironmentManager:
             else:
                 perl_bin = perl_path / "bin"
             self.env_vars["PERL_ROOT"] = str(perl_bin)
+        elif self.bundled_perl_bin.exists():
+            self.env_vars["PERL_ROOT"] = str(self.bundled_perl_bin.parent.parent)
+        elif self.bundled_perl_bin_alt.exists():
+            self.env_vars["PERL_ROOT"] = str(self.bundled_perl_bin_alt.parent)
 
+        # Python path - user config only (no bundled Python)
         python_path = self.config.python_path
         if python_path:
             python_path = Path(python_path)

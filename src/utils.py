@@ -69,14 +69,26 @@ def check_python_version() -> Tuple[bool, str]:
     return False, f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.12)"
 
 
+BUNDLED_TOOLS_DIR = Path(__file__).parent.parent / "tools"
+BUNDLED_LLVM_MINGW_DIR = BUNDLED_TOOLS_DIR / "llvm-mingw"
+BUNDLED_PERL_DIR = BUNDLED_TOOLS_DIR / "perl"
+
+
 def check_llvm_mingw() -> Tuple[bool, str, str]:
     """
-    Check if llvm-mingw make tool is available.
+    Check if llvm-mingw make tool is available - Bundled tools first.
 
     Returns:
         Tuple of (is_valid, status_message, download_hint)
     """
     import re
+
+    # Check bundled llvm-mingw first
+    if is_windows():
+        bundled_make = BUNDLED_LLVM_MINGW_DIR / "bin" / "mingw32-make.exe"
+        bundled_gcc = BUNDLED_LLVM_MINGW_DIR / "bin" / "gcc.exe"
+        if bundled_make.exists() and bundled_gcc.exists():
+            return True, f"Bundled llvm-mingw found: {BUNDLED_LLVM_MINGW_DIR}", ""
 
     # Check make command (try both 'make' and 'mingw32-make' on Windows)
     make_path = shutil.which("make")
@@ -102,22 +114,31 @@ def check_llvm_mingw() -> Tuple[bool, str, str]:
     else:
         # No make found
         return False, "Make 未安装", \
-            "请下载 llvm-mingw: https://github.com/mstorsjo/llvm-mingw/releases"
+            "请运行 python scripts/download_tools.py 下载预打包工具"
 
 
 def check_perl() -> Tuple[bool, str, str]:
     """
-    Check if Perl is available.
+    Check if Perl is available - Bundled tools first.
 
     Returns:
         Tuple of (is_valid, status_message, download_hint)
     """
+    # Check bundled Perl first
+    if is_windows():
+        bundled_perl = BUNDLED_PERL_DIR / "perl" / "bin" / "perl.exe"
+        bundled_perl_alt = BUNDLED_PERL_DIR / "bin" / "perl.exe"
+        if bundled_perl.exists():
+            return True, f"Bundled Perl found: {bundled_perl}", ""
+        if bundled_perl_alt.exists():
+            return True, f"Bundled Perl found: {bundled_perl_alt}", ""
+
     perl_path = shutil.which("perl")
     if perl_path:
         return True, f"Perl found: {perl_path}", ""
     else:
         return False, "Perl 未安装", \
-            "请下载 Strawberry Perl: https://strawberryperl.com/"
+            "请运行 python scripts/download_tools.py 下载预打包工具"
 
 
 def check_command_exists(command: str) -> bool:
