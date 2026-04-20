@@ -2,12 +2,43 @@
 Build script generator - Generates Windows batch scripts for Qt build
 """
 
+import os
+import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..config.schema import InstallConfig
     from .env_setup import EnvironmentManager
+
+
+def get_windows_short_path(long_path: str) -> str:
+    """
+    Get Windows short path name (8.3 format) to handle paths with spaces.
+    
+    Args:
+        long_path: Full Windows path that may contain spaces
+        
+    Returns:
+        Short path name without spaces, or original path if conversion fails
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+        
+        GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
+        GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        GetShortPathNameW.restype = wintypes.DWORD
+        
+        buffer_size = GetShortPathNameW(long_path, None, 0)
+        if buffer_size > 0:
+            buffer = ctypes.create_unicode_buffer(buffer_size)
+            result = GetShortPathNameW(long_path, buffer, buffer_size)
+            if result > 0:
+                return buffer.value
+    except Exception:
+        pass
+    return long_path
 
 
 def generate_build_script(
@@ -32,11 +63,53 @@ def generate_build_script(
 
     env = env_manager.get_build_environment()
 
-    # Get paths
+    # Get paths - use short path names to handle spaces in Windows
     mingw_bin = env.get("MINGW_ROOT", "")
-    perl_bin = env.get("PERL_ROOT", "")
+    perl_root = env.get("PERL_ROOT", "")
     python_bin = env.get("PYTHON_ROOT", "")
-    llvm_bin = str(config.harmony_sdk_path / "native" / "llvm" / "bin")
+    
+    # Perl bin is under PERL_ROOT/perl/bin or PERL_ROOT/bin
+    if perl_root:
+        perl_bin_path = Path(perl_root) / "perl" / "bin"
+        if perl_bin_path.exists():
+            perl_bin = str(perl_bin_path)
+        else:
+            perl_bin_alt = Path(perl_root) / "bin"
+            if perl_bin_alt.exists():
+                perl_bin = str(perl_bin_alt)
+            else:
+                perl_bin = perl_root
+    else:
+        perl_bin = ""
+    
+    # Convert tool paths to short path if contains spaces
+    if mingw_bin and " " in mingw_bin:
+        mingw_bin = get_windows_short_path(mingw_bin)
+    if perl_bin and " " in perl_bin:
+        perl_bin = get_windows_short_path(perl_bin)
+    if python_bin and " " in python_bin:
+        python_bin = get_windows_short_path(python_bin)
+    
+    # SDK paths - convert to short path if contains spaces
+    sdk_path_str = str(config.harmony_sdk_path)
+    if " " in sdk_path_str:
+        sdk_path_str = get_windows_short_path(sdk_path_str)
+    llvm_bin = sdk_path_str + "\\native\\llvm\\bin"
+    
+    # Install path - convert to short path if contains spaces
+    install_path_str = str(config.install_path)
+    if " " in install_path_str:
+        install_path_str = get_windows_short_path(install_path_str)
+    
+    # Qt source path - convert to short path if contains spaces
+    qt_source_str = str(config.qt_source_path)
+    if " " in qt_source_str:
+        qt_source_str = get_windows_short_path(qt_source_str)
+    
+    # Build directory - convert to short path if contains spaces
+    build_dir_str = str(build_dir)
+    if " " in build_dir_str:
+        build_dir_str = get_windows_short_path(build_dir_str)
 
     # If python_bin not set, try multiple fallback sources
     if not python_bin:
@@ -55,8 +128,8 @@ def generate_build_script(
         if not python_bin:
             python_bin = os.path.dirname(sys.executable)
 
-    # Configure script path
-    configure_script = config.qt_source_path / "configure.bat"
+    # Configure script path - use short path version
+    configure_script = qt_source_str + "\\configure.bat"
 
     # Build configure arguments
     device_prefix = f"/data/storage/el1/bundle/libs/{config.architecture.split('-')[0]}"
@@ -122,11 +195,11 @@ if exist "%LLVM_BIN%" set "PATH=%PATH%;%LLVM_BIN%"
 if exist "%LLVM_BIN%" echo [OK] LLVM: %LLVM_BIN%
 if not exist "%LLVM_BIN%" echo [WARN] LLVM path not found: %LLVM_BIN%
 
-REM Set environment variables
-set "NATIVE_OHOS_SDK={config.harmony_sdk_path}\\native"
-set "OHOS_SDK_SYSROOT={config.harmony_sdk_path}\\native\\sysroot"
+REM Set environment variables (use short paths to handle spaces)
+set "NATIVE_OHOS_SDK={sdk_path_str}\\native"
+set "OHOS_SDK_SYSROOT={sdk_path_str}\\native\\sysroot"
 set "LLVM_INSTALL_DIR={llvm_bin}\\.."
-set "OHOS_SDK_ROOT={config.harmony_sdk_path}"
+set "OHOS_SDK_ROOT={sdk_path_str}"
 set "OHOS_TARGET_ARCH={config.architecture}"
 
 echo.
@@ -150,7 +223,7 @@ echo.
 echo ============================================
 
 REM Create build directory
-set "BUILD_DIR={build_dir}"
+set "BUILD_DIR={build_dir_str}"
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 
 REM Run configure
@@ -160,7 +233,7 @@ echo.
 
 pushd "%BUILD_DIR%"
 
-call "{configure_script}" -v -platform win32-clang-g++ -xplatform ohos-clang -device-option CROSS_COMPILE=%LLVM_INSTALL_DIR%\\bin -prefix "{device_prefix}" -extprefix "{config.install_path}" -opensource -confirm-license {build_type_opt} -no-use-gold-linker {skip_modules} {extra_args} -nomake tests -nomake examples -no-gcc-sysroot -c++std {cxx_std} -ohos-arch {config.architecture}
+call "{configure_script}" -v -platform win32-clang-g++ -xplatform ohos-clang -device-option CROSS_COMPILE="{llvm_bin}" -prefix "{device_prefix}" -extprefix "{install_path_str}" -opensource -confirm-license {build_type_opt} -no-use-gold-linker {skip_modules} {extra_args} -nomake tests -nomake examples -no-gcc-sysroot -c++std {cxx_std} -ohos-arch {config.architecture}
 
 if %errorlevel% neq 0 echo.
 if %errorlevel% neq 0 echo [ERROR] Configure failed with code %errorlevel%
@@ -203,17 +276,17 @@ popd
 REM Copy runtime DLLs
 echo.
 echo [Copy] Copying runtime dependencies...
-for %%d in (libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll) do if exist "%MINGW_BIN%\\%%d" copy /y "%MINGW_BIN%\\%%d" "{config.install_path}\\bin\\" >nul
+for %%d in (libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll) do if exist "%MINGW_BIN%\\%%d" copy /y "%MINGW_BIN%\\%%d" "{install_path_str}\\bin\\" >nul
 
 echo.
 echo ============================================
 echo [SUCCESS] Build completed!
-echo Install path: {config.install_path}
+echo Install path: {install_path_str}
 echo ============================================
 
-if exist "{config.install_path}\\bin\\qmake.exe" echo.
-if exist "{config.install_path}\\bin\\qmake.exe" echo Qt version:
-if exist "{config.install_path}\\bin\\qmake.exe" "{config.install_path}\\bin\\qmake.exe" -query QT_VERSION
+if exist "{install_path_str}\\bin\\qmake.exe" echo.
+if exist "{install_path_str}\\bin\\qmake.exe" echo Qt version:
+if exist "{install_path_str}\\bin\\qmake.exe" "{install_path_str}\\bin\\qmake.exe" -query QT_VERSION
 
 exit /b 0
 '''
