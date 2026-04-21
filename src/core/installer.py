@@ -305,6 +305,6 @@ class QtHarmonyInstaller:
             self.display.show_error("配置或环境未设置 / Configuration or environment not setup")
             return False
 
-        self.builder = QtBuilder(config, self.env_manager, self.logger)
+        self.builder = QtBuilder(config, self.env_manager, self.logger, self.workspace)
 
         return self.builder.build_all()

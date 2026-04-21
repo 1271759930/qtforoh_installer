@@ -24,14 +24,20 @@ class QtBuilder:
         self,
         config: InstallConfig,
         env_manager: EnvironmentManager,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
+        workspace: Optional[Path] = None
     ):
         self.config = config
         self.env_manager = env_manager
         self.logger = logger or logging.getLogger("qtohos-installer")
 
-        # Build directory (parallel to source dir)
-        self.build_dir = config.qt_source_path.parent / f"build_{config.architecture}"
+        # Build directory - use workspace/temp if provided, otherwise parallel to source
+        if workspace:
+            self.build_dir = workspace / "temp" / f"build_{config.architecture}"
+        else:
+            self.build_dir = config.qt_source_path.parent / f"build_{config.architecture}"
+
+        self.workspace = workspace
 
         # Make command
         self.make_cmd = "mingw32-make" if is_windows() else "make"

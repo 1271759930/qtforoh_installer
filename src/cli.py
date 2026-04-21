@@ -261,6 +261,7 @@ def clean(workspace: str):
 
     Removes build directory and temporary files, but keeps configuration.
     """
+    import shutil
     workspace_path = Path(workspace).resolve()
     config_manager = ConfigManager(workspace_path / "config.yaml")
 
@@ -274,16 +275,27 @@ def clean(workspace: str):
 
     console.print("\n[bold cyan]Cleaning build artifacts...[/bold cyan]")
 
-    # Clean build directory
-    build_dir = cfg.qt_source_path / f"build_{cfg.architecture}"
+    # Clean build directory from workspace/temp
+    build_dir = workspace_path / "temp" / f"build_{cfg.architecture}"
     if build_dir.exists():
         console.print(f"Removing: {build_dir}")
-        import shutil
         try:
             shutil.rmtree(build_dir)
             console.print("[green]✓ Build directory removed[/green]")
         except Exception as e:
             console.print(f"[red]✗ Failed to remove build directory: {e}[/red]")
+            console.print("[yellow]Try closing any programs using these files[/yellow]")
+
+    # Clean temp directory if empty
+    temp_dir = workspace_path / "temp"
+    if temp_dir.exists() and temp_dir.is_dir():
+        try:
+            remaining = list(temp_dir.iterdir())
+            if not remaining:
+                shutil.rmtree(temp_dir)
+                console.print("[green]✓ Empty temp directory removed[/green]")
+        except Exception:
+            pass
 
     # Clean logs
     logs_dir = workspace_path / "logs"

@@ -49,6 +49,9 @@ src/tools/__pycache__/
 logs/
 *.log
 
+# Build temp directory
+temp/
+
 # OS
 .DS_Store
 Thumbs.db
