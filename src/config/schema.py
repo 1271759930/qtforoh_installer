@@ -21,6 +21,12 @@ class InstallConfig:
     python_path: Optional[Path] = None
     version_source: str = "default"
 
+    @property
+    def actual_install_path(self) -> Path:
+        """Get actual installation path with Qt version and architecture."""
+        folder_name = f"Qt{self.qt_version}-{self.architecture}"
+        return self.install_path / folder_name
+
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization"""
         return {

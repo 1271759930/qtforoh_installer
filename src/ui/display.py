@@ -71,7 +71,8 @@ This tool will help you install Qt for HarmonyOS by:
 
         table.add_row("Qt源码路径 / Qt Source Path", str(config.qt_source_path))
         table.add_row("HarmonyOS SDK路径 / SDK Path", str(config.harmony_sdk_path))
-        table.add_row("安装路径 / Install Path", str(config.install_path))
+        table.add_row("安装基础路径 / Base Install Path", str(config.install_path))
+        table.add_row("实际安装路径 / Actual Install Path", str(config.actual_install_path))
         table.add_row("架构 / Architecture", config.architecture)
         table.add_row("Qt版本 / Qt Version", f"{config.qt_version} ({config.version_source})")
         table.add_row("构建类型 / Build Type", config.build_type)
@@ -93,7 +94,7 @@ This tool will help you install Qt for HarmonyOS by:
 [bold cyan]后续步骤 / Next Steps:[/bold cyan]
 
 1. [yellow]配置Qt Creator / Configure Qt Creator:[/yellow]
-   • 添加Qt版本 / Add Qt version: {config.install_path}/bin/qmake
+   • 添加Qt版本 / Add Qt version: {config.actual_install_path}/bin/qmake
    • 添加编译器 / Add compiler: {config.harmony_sdk_path}/native/llvm/bin/clang
    • 创建使用ohos-clang mkspec的构建套件 / Create kit with ohos-clang mkspec
 
@@ -111,7 +112,7 @@ This tool will help you install Qt for HarmonyOS by:
   • HarmonyOS开发者 / HarmonyOS Dev: https://developer.huawei.com/consumer/cn/
 
 [bold cyan]Qt安装位置 / Installed Qt Location:[/bold cyan]
-  {config.install_path}
+   {config.actual_install_path}
         """
 
         self.console.print(Panel(completion_text, border_style="green"))

@@ -109,7 +109,8 @@ def config(workspace: str):
         if cfg:
             table.add_row("Qt Source Path", str(cfg.qt_source_path))
             table.add_row("HarmonyOS SDK Path", str(cfg.harmony_sdk_path))
-            table.add_row("Install Path", str(cfg.install_path))
+            table.add_row("Base Install Path", str(cfg.install_path))
+            table.add_row("Actual Install Path", str(cfg.actual_install_path))
             table.add_row("Architecture", cfg.architecture)
             table.add_row("Qt Version", cfg.qt_version)
             table.add_row("Build Type", cfg.build_type)

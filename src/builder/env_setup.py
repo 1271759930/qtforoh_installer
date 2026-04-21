@@ -64,7 +64,7 @@ class EnvironmentManager:
 
             # Qt paths
             "QT5_ROOT_DIR": str(self.config.qt_source_path),
-            "QT_INSTALL_PATH": str(self.config.install_path),
+            "QT_INSTALL_PATH": str(self.config.actual_install_path),
 
             # Build configuration
             "QT_ARCH": self.config.architecture,

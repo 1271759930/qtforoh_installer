@@ -97,7 +97,7 @@ def generate_build_script(
     llvm_bin = sdk_path_str + "\\native\\llvm\\bin"
     
     # Install path - convert to short path if contains spaces
-    install_path_str = str(config.install_path)
+    install_path_str = str(config.actual_install_path)
     if " " in install_path_str:
         install_path_str = get_windows_short_path(install_path_str)
     

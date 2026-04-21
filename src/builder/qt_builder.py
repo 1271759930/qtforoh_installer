@@ -308,7 +308,7 @@ class QtBuilder:
         device_prefix = f"/data/storage/el1/bundle/libs/{self.config.architecture.split('-')[0]}"
         cmd.extend([
             "-prefix", device_prefix,
-            "-extprefix", str(self.config.install_path),
+            "-extprefix", str(self.config.actual_install_path),
         ])
 
         # Skip modules - use version default if not specified
@@ -327,7 +327,7 @@ class QtBuilder:
         print("\n[bold cyan]Verifying installation...[/bold cyan]")
 
         # Check for qmake
-        qmake_path = self.config.install_path / "bin" / "qmake"
+        qmake_path = self.config.actual_install_path / "bin" / "qmake"
         if is_windows():
             qmake_path = qmake_path.with_suffix(".exe")
 
@@ -350,7 +350,7 @@ class QtBuilder:
             print(f"[yellow]⚠ qmake not found at expected location[/yellow]")
 
         # Check for libraries
-        lib_dir = self.config.install_path / "lib"
+        lib_dir = self.config.actual_install_path / "lib"
         if lib_dir.exists():
             libs = list(lib_dir.glob("*.so")) if not is_windows() else list(lib_dir.glob("*.dll"))
             print(f"[green]✓ Found {len(libs)} libraries[/green]")

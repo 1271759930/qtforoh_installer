@@ -136,7 +136,11 @@ class QtHarmonyInstaller:
                     self.display.show_success("使用现有配置(自动确认) / Using existing configuration (auto-confirm)")
                     return config
                 elif self.collector.confirm_configuration(config):
+                    self.config_manager.save_config()
+                    self.display.show_success("配置已保存 / Configuration saved")
                     return config
+                else:
+                    return None
 
         # Prompt for new configuration
         try:

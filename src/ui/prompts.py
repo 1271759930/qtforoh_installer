@@ -88,49 +88,28 @@ class ConfigCollector:
         print("  \033[92mhttps://www.gnu.org/licenses/lgpl-3.0.html\033[0m")
         print()
 
-        # Checkbox for agreement
+        # Select for agreement
         choices = [
             questionary.Choice(
-                "我同意开源协议 / I agree to the open source license",
-                value="agree",
-                checked=False
+                "✓ 我同意开源协议并继续 / I agree to the open source license and continue",
+                value="agree"
+            ),
+            questionary.Choice(
+                "✗ 我不同意，退出安装 / I disagree and exit installation",
+                value="disagree"
             ),
         ]
 
-        response = questionary.checkbox(
-            "请勾选同意协议后继续 / Check the box to agree and continue:",
+        response = questionary.select(
+            "请选择 / Please select:",
             choices=choices,
             style=CUSTOM_STYLE,
         ).ask()
 
-        if response is None:
+        if response is None or response == "disagree":
+            print()
+            print("\033[93m  安装已取消 / Installation cancelled\033[0m")
             return False
-
-        # Check if user agreed
-        agreed = "agree" in response
-
-        if not agreed:
-            # User didn't check the box, ask what they want to do
-            print()
-            print("\033[91m  ⚠ 您未勾选同意协议 / You did not agree to the license\033[0m")
-            print()
-
-            choices = [
-                questionary.Choice("返回勾选协议 / Go back and agree", value="back"),
-                questionary.Choice("✗ 取消安装 / Cancel installation", value="cancel"),
-            ]
-
-            action = questionary.select(
-                "请选择 / What would you like to do?",
-                choices=choices,
-                style=CUSTOM_STYLE,
-            ).ask()
-
-            if action == "back":
-                # Recursively call to show agreement again
-                return self.show_license_agreement()
-            else:
-                return False
 
         # User agreed
         print()
@@ -214,13 +193,13 @@ class ConfigCollector:
         """Collect Qt installation path with interactive input / 收集Qt安装路径"""
         self._print_header("Qt安装路径 / Qt Installation Path")
 
-        print("请指定Qt for HarmonyOS的安装路径。")
-        print("该目录将包含编译后的Qt库和头文件。")
-        print("示例: C:\\Qt\\Qt5.15.16-HarmonyOS")
+        print("请指定Qt for HarmonyOS的安装基础路径。")
+        print("实际安装目录将在此路径下自动创建，格式为: Qt{版本}-{架构}")
+        print("示例: 输入 C:\\Qt，将安装到 C:\\Qt\\Qt5.15.16-arm64-v8a")
         print()
-        print("Please specify where to install Qt for HarmonyOS.")
-        print("This directory will contain the compiled Qt libraries and headers.")
-        print("Example: C:\\Qt\\Qt5.15.16-HarmonyOS")
+        print("Please specify the base installation path for Qt for HarmonyOS.")
+        print("The actual installation directory will be created automatically under this path as: Qt{version}-{arch}")
+        print("Example: Enter C:\\Qt, will install to C:\\Qt\\Qt5.15.16-arm64-v8a")
         print()
 
         response = questionary.path(
@@ -516,10 +495,56 @@ class ConfigCollector:
             if response is None or response == "cancel":
                 return False
             elif response == "proceed":
-                return True
+                return self._verify_and_update_config(config)
             elif response == "modify":
                 if not self._modify_config_menu(config):
                     return False
+
+    def _verify_and_update_config(self, config: InstallConfig) -> bool:
+        """
+        Verify and update configuration before installation.
+        检测git版本并更新配置，确保模块匹配。
+        """
+        print()
+        print("\033[96m检测源码Git版本... / Detecting Git version from source...\033[0m")
+
+        detected_version, detected_source = detect_qt_version(config.qt_source_path)
+        print(f"\033[92m  ✓ 检测到 / Detected: {detected_version} (来自 / from {detected_source})\033[0m")
+
+        version_changed = False
+        if detected_version != config.qt_version:
+            print()
+            print(f"\033[93m  ⚠ 配置版本({config.qt_version})与Git版本({detected_version})不同\033[0m")
+            print(f"\033[93m  Warning: Config version ({config.qt_version}) differs from Git version ({detected_version})\033[0m")
+
+            update = questionary.confirm(
+                f"是否更新版本号为 {detected_version}? / Update version to {detected_version}?",
+                default=True,
+                style=CUSTOM_STYLE,
+            ).ask()
+
+            if update is None:
+                return False
+            elif update:
+                config.qt_version = detected_version
+                config.version_source = detected_source
+                version_changed = True
+                print(f"\033[92m  ✓ 已更新Qt版本 / Qt version updated: {config.qt_version}\033[0m")
+
+        if version_changed:
+            print()
+            print("\033[96m更新跳过模块列表... / Updating skip modules list...\033[0m")
+
+            available_modules = get_available_modules(config.qt_version, config.qt_source_path)
+            default_skip = get_default_skip_modules(config.qt_version)
+
+            new_skip = [m for m in default_skip if m in available_modules]
+
+            old_skip_count = len(config.skip_modules)
+            config.skip_modules = new_skip
+            print(f"\033[92m  ✓ 已更新跳过模块 / Skip modules updated: {old_skip_count} → {len(config.skip_modules)} 个\033[0m")
+
+        return True
 
     def _show_config_summary(self, config: InstallConfig) -> None:
         """Display configuration summary / 显示配置摘要"""
@@ -532,7 +557,8 @@ class ConfigCollector:
         items = [
             ("Qt源码路径 / Qt Source Path", str(config.qt_source_path)),
             ("HarmonyOS SDK路径 / SDK Path", str(config.harmony_sdk_path)),
-            ("安装路径 / Install Path", str(config.install_path)),
+            ("安装基础路径 / Base Install Path", str(config.install_path)),
+            ("实际安装路径 / Actual Install Path", str(config.actual_install_path)),
             ("架构 / Architecture", config.architecture),
             ("Qt版本 / Qt Version", f"{config.qt_version} ({config.version_source})"),
             ("构建类型 / Build Type", config.build_type),
@@ -566,7 +592,7 @@ class ConfigCollector:
             choices = [
                 questionary.Choice(f"Qt源码路径 / Qt Source Path:      {config.qt_source_path}", value="1"),
                 questionary.Choice(f"HarmonyOS SDK路径 / SDK Path:  {config.harmony_sdk_path}", value="2"),
-                questionary.Choice(f"安装路径 / Install Path:   {config.install_path}", value="3"),
+                questionary.Choice(f"安装基础路径 / Base Install Path:   {config.install_path}", value="3"),
                 questionary.Choice(f"架构 / Architecture:        {config.architecture}", value="4"),
                 questionary.Choice(f"Qt版本 / Qt Version:          {config.qt_version} ({config.version_source})", value="5"),
                 questionary.Choice(f"构建类型 / Build Type:          {config.build_type}", value="6"),
