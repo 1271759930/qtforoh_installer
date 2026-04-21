@@ -85,6 +85,8 @@ def generate_build_script(
     # Convert tool paths to short path if contains spaces
     if mingw_bin and " " in mingw_bin:
         mingw_bin = get_windows_short_path(mingw_bin)
+    if perl_root and " " in perl_root:
+        perl_root = get_windows_short_path(perl_root)
     if perl_bin and " " in perl_bin:
         perl_bin = get_windows_short_path(perl_bin)
     if python_bin and " " in python_bin:
@@ -178,8 +180,11 @@ if not exist "%MINGW_BIN%" exit /b 1
 
 REM Add Perl
 set "PERL_BIN={perl_bin}"
+set "PERL_ROOT={perl_root}"
 if exist "%PERL_BIN%" set "PATH=%PATH%;%PERL_BIN%"
+if exist "%PERL_ROOT%" set "PERL5LIB=%PERL_ROOT%\\perl\\lib;%PERL_ROOT%\\lib"
 if exist "%PERL_BIN%" echo [OK] Perl: %PERL_BIN%
+if exist "%PERL_ROOT%" echo [OK] Perl Root: %PERL_ROOT%
 if not exist "%PERL_BIN%" echo [ERROR] Perl path not found: %PERL_BIN%
 if not exist "%PERL_BIN%" exit /b 1
 
