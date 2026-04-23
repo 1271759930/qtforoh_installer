@@ -492,3 +492,81 @@ def get_qt_version_config(version: str) -> dict:
             "extra_configure_options": ["-no-dbus"],
             "notes": f"Unknown Qt version {version}, using default config, dbus disabled"
         }
+
+
+def add_to_user_path(path_str: str) -> Tuple[bool, str]:
+    """
+    Add a path to user's PATH environment variable on Windows.
+    将路径添加到Windows用户PATH环境变量。
+
+    Args:
+        path_str: Path to add
+
+    Returns:
+        Tuple of (success, message)
+    """
+    if not is_windows():
+        return False, "仅支持Windows系统 / Only supported on Windows"
+
+    try:
+        import winreg
+
+        path_str = str(Path(path_str).resolve())
+
+        # Open user environment key
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            "Environment",
+            0,
+            winreg.KEY_READ | winreg.KEY_WRITE
+        )
+
+        try:
+            # Get current PATH value
+            current_path, _ = winreg.QueryValueEx(key, "PATH")
+        except FileNotFoundError:
+            current_path = ""
+
+        # Check if path already exists
+        path_lower = path_str.lower()
+        existing_paths = [p.strip().lower() for p in current_path.split(";") if p.strip()]
+
+        if path_lower in existing_paths:
+            winreg.CloseKey(key)
+            return True, f"路径已存在 / Path already in PATH: {path_str}"
+
+        # Add new path
+        if current_path:
+            new_path = path_str + ";" + current_path
+        else:
+            new_path = path_str
+
+        # Set new PATH value
+        winreg.SetValueEx(key, "PATH", 0, winreg.REG_EXPAND_SZ, new_path)
+        winreg.CloseKey(key)
+
+        # Notify system of environment change
+        try:
+            import ctypes
+            HWND_BROADCAST = 0xFFFF
+            WM_SETTINGCHANGE = 0x001A
+            SMTO_ABORTIFHUNG = 0x0002
+            result = ctypes.c_long()
+            ctypes.windll.user32.SendMessageTimeoutW(
+                HWND_BROADCAST,
+                WM_SETTINGCHANGE,
+                0,
+                "Environment",
+                SMTO_ABORTIFHUNG,
+                5000,
+                ctypes.byref(result)
+            )
+        except Exception:
+            pass
+
+        return True, f"已添加到用户PATH / Added to user PATH: {path_str}"
+
+    except PermissionError:
+        return False, "权限不足，无法修改环境变量 / Insufficient permissions"
+    except Exception as e:
+        return False, f"添加失败 / Failed to add: {e}"

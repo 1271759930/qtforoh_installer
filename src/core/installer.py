@@ -17,7 +17,8 @@ from ..ui.prompts import ConfigCollector
 from ..tools.downloader import ToolDownloader
 from ..builder.env_setup import EnvironmentManager
 from ..builder.qt_builder import QtBuilder
-from ..utils import setup_logging, check_python_version, is_windows
+from ..utils import setup_logging, check_python_version, is_windows, add_to_user_path
+from ..builder.env_setup import BUNDLED_LLVM_MINGW_DIR
 
 
 class QtHarmonyInstaller:
@@ -63,6 +64,7 @@ class QtHarmonyInstaller:
             if success:
                 config = self.config_manager.install_config
                 if config:
+                    self._add_mingw_to_path()
                     self.display.show_completion_message(config, self.workspace)
 
                 if self.logger:
@@ -81,6 +83,28 @@ class QtHarmonyInstaller:
             if self.logger:
                 self.logger.error(f"Installation error: {e}")
             return False
+
+    def _add_mingw_to_path(self) -> None:
+        """Add bundled llvm-mingw to user PATH environment variable"""
+        if not is_windows():
+            return
+
+        mingw_bin = BUNDLED_LLVM_MINGW_DIR / "bin"
+        if not mingw_bin.exists():
+            return
+
+        self.display.print("\n[cyan]检查环境变量 / Checking environment variables...[/cyan]")
+
+        success, message = add_to_user_path(str(mingw_bin))
+
+        if success:
+            self.display.print(f"[green]✓ {message}[/green]")
+            if self.logger:
+                self.logger.info(f"Added mingw to PATH: {mingw_bin}")
+        else:
+            self.display.print(f"[yellow]⚠ {message}[/yellow]")
+            self.display.print("[yellow]  您可以手动添加路径 / You can manually add the path:[/yellow]")
+            self.display.print(f"[yellow]  {mingw_bin}[/yellow]")
 
     # Step handler methods (called by steps)
 
