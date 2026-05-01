@@ -18,7 +18,7 @@ from ..tools.downloader import ToolDownloader
 from ..builder.env_setup import EnvironmentManager
 from ..builder.qt_builder import QtBuilder
 from ..utils import setup_logging, check_python_version, is_windows, add_to_user_path
-from ..builder.env_setup import BUNDLED_LLVM_MINGW_DIR
+from ..constants import BUNDLED_LLVM_MINGW_DIR, BUNDLED_PERL_DIR
 
 
 class QtHarmonyInstaller:
@@ -194,54 +194,41 @@ class QtHarmonyInstaller:
             self.config_manager.tool_config
         )
 
-        # Check if tools exist, if not, try to extract from archives
+        # Check bundled tools completeness (required for build headers)
+        # Use constants from ..constants module (already imported)
+        mingw32_make = BUNDLED_LLVM_MINGW_DIR / "bin" / "mingw32-make.exe"
+        include_dir = BUNDLED_LLVM_MINGW_DIR / "include"
+        mm_malloc_h = include_dir / "mm_malloc.h"
+        perl_exe = BUNDLED_PERL_DIR / "perl" / "bin" / "perl.exe"
+        perl_lib = BUNDLED_PERL_DIR / "perl" / "lib"
+        basename_pm = perl_lib / "File" / "Basename.pm"
+
+        llvm_complete = mingw32_make.exists() and mm_malloc_h.exists()
+        perl_complete = perl_exe.exists() and basename_pm.exists()
+
+        # Always ensure bundled tools are complete (needed for build headers)
+        if not llvm_complete or not perl_complete:
+            self.display.print("\n[cyan]检测到 bundled 工具缺失或不完整，从 Release 下载...[/cyan]")
+            self.display.print("[cyan]Downloading bundled tools from GitCode release...[/cyan]")
+
+            # Download bundled tools from GitCode
+            llvm_ok, perl_download_ok = self.downloader.download_bundled_tools(self.display.console)
+
+            if llvm_ok and perl_download_ok:
+                self.display.show_success("Bundled 工具下载完成 / Bundled tools downloaded")
+            else:
+                self.display.show_error("工具下载失败 / Tool download failed")
+                return False
+
+        # Check if tools exist (including system tools as fallback)
         make_ok, perl_ok, mingw_ok = self.downloader.check_existing_tools()
-
-        if not (make_ok and perl_ok):
-            self.display.print("\n[cyan]检查本地工具压缩包... / Checking local archives...[/cyan]")
-
-            if archives_dir.exists():
-                self.display.print(f"  压缩包目录 / Archives directory: {archives_dir}")
-
-                llvm_archive = archives_dir / "llvm-mingw-20240917-ucrt-x86_64.zip"
-                perl_archive = archives_dir / "strawberry-perl-5.42.2.1-64bit-portable.zip"
-
-                if llvm_archive.exists() or perl_archive.exists():
-                    self.display.print("[cyan]从本地压缩包解压工具... / Extracting from local archives...[/cyan]")
-
-                    import zipfile
-
-                    llvm_mingw_dir = tools_dir / "llvm-mingw"
-                    perl_dir = tools_dir / "perl"
-
-                    # Extract llvm-mingw
-                    if llvm_archive.exists() and not llvm_mingw_dir.exists():
-                        self._extract_archive(llvm_archive, llvm_mingw_dir, "llvm-mingw")
-
-                    # Extract Perl
-                    if perl_archive.exists() and not perl_dir.exists():
-                        self._extract_archive(perl_archive, perl_dir, "Perl")
-
-                    # Re-check after extraction
-                    make_ok, perl_ok, mingw_ok = self.downloader.check_existing_tools()
 
         if make_ok and perl_ok:
             self.display.show_success("所有所需工具已就绪 / All required tools are ready")
-
-            if not mingw_ok:
-                self.display.show_warning(
-                    "PATH中未检测到MinGW (gcc/g++) / MinGW (gcc/g++) not detected in PATH."
-                )
-                self.display.print(
-                    "[yellow]  请确保 tools/archives/ 目录包含压缩包 "
-                    "/ Ensure tools/archives/ contains the archives.[/yellow]"
-                )
-
             return True
         else:
             self.display.show_error("某些所需工具缺失 / Some required tools are missing")
             self.display.print("  [yellow]请运行 python scripts/download_tools.py 准备工具[/yellow]")
-            self.display.print("  [yellow]Run 'python scripts/download_tools.py' to setup tools[/yellow]")
             return False
 
     def _extract_archive(self, archive_path: Path, target_dir: Path, tool_name: str) -> bool:

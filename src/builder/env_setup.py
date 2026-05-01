@@ -9,11 +9,11 @@ from typing import Dict, Optional
 
 from ..config.schema import InstallConfig
 from ..utils import is_windows
-
-# Bundled tools directory (relative to project root)
-BUNDLED_TOOLS_DIR = Path(__file__).parent.parent.parent / "tools"
-BUNDLED_LLVM_MINGW_DIR = BUNDLED_TOOLS_DIR / "llvm-mingw"
-BUNDLED_PERL_DIR = BUNDLED_TOOLS_DIR / "perl"
+from ..constants import (
+    BUNDLED_LLVM_MINGW_BIN,
+    BUNDLED_PERL_BIN,
+    BUNDLED_PERL_BIN_ALT,
+)
 
 
 class EnvironmentManager:
@@ -23,10 +23,10 @@ class EnvironmentManager:
         self.config = config
         self.env_vars: Dict[str, str] = {}
 
-        # Bundled tools paths
-        self.bundled_mingw_bin = BUNDLED_LLVM_MINGW_DIR / "bin"
-        self.bundled_perl_bin = BUNDLED_PERL_DIR / "perl" / "bin"
-        self.bundled_perl_bin_alt = BUNDLED_PERL_DIR / "bin"
+        # Bundled tools paths (from constants)
+        self.bundled_mingw_bin = BUNDLED_LLVM_MINGW_BIN
+        self.bundled_perl_bin = BUNDLED_PERL_BIN
+        self.bundled_perl_bin_alt = BUNDLED_PERL_BIN_ALT
 
     def reset_path_to_minimum(self) -> None:
         """

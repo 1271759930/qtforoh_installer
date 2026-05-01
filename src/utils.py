@@ -13,25 +13,35 @@ from typing import Optional, List, Tuple
 import logging
 from datetime import datetime
 
+from .constants import (
+    BUNDLED_LLVM_MINGW_DIR,
+    BUNDLED_LLVM_MINGW_BIN,
+    BUNDLED_LLVM_MINGW_MAKE,
+    BUNDLED_LLVM_MINGW_GCC,
+    BUNDLED_PERL_DIR,
+    BUNDLED_PERL_EXE,
+    BUNDLED_PERL_BIN_ALT,
+)
+
 
 def setup_logging(log_dir: Path) -> logging.Logger:
     """Setup logging configuration"""
     log_dir.mkdir(parents=True, exist_ok=True)
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = log_dir / f"install_{timestamp}.log"
-    
+
     logger = logging.getLogger("qtohos-installer")
     logger.setLevel(logging.DEBUG)
-    
+
     # File handler
     fh = logging.FileHandler(log_file, encoding="utf-8")
     fh.setLevel(logging.DEBUG)
-    
+
     # Console handler
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
-    
+
     # Formatter
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -39,10 +49,10 @@ def setup_logging(log_dir: Path) -> logging.Logger:
     )
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
-    
+
     logger.addHandler(fh)
     logger.addHandler(ch)
-    
+
     return logger
 
 
@@ -51,27 +61,12 @@ def is_windows() -> bool:
     return platform.system() == "Windows"
 
 
-def is_macos() -> bool:
-    """Check if running on macOS"""
-    return platform.system() == "Darwin"
-
-
-def is_linux() -> bool:
-    """Check if running on Linux"""
-    return platform.system() == "Linux"
-
-
 def check_python_version() -> Tuple[bool, str]:
     """Check if Python version meets requirements"""
     version = sys.version_info
     if version.major >= 3 and version.minor >= 12:
         return True, f"Python {version.major}.{version.minor}.{version.micro}"
     return False, f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.12)"
-
-
-BUNDLED_TOOLS_DIR = Path(__file__).parent.parent / "tools"
-BUNDLED_LLVM_MINGW_DIR = BUNDLED_TOOLS_DIR / "llvm-mingw"
-BUNDLED_PERL_DIR = BUNDLED_TOOLS_DIR / "perl"
 
 
 def check_llvm_mingw() -> Tuple[bool, str, str]:
@@ -83,11 +78,9 @@ def check_llvm_mingw() -> Tuple[bool, str, str]:
     """
     import re
 
-    # Check bundled llvm-mingw first
+    # Check bundled llvm-mingw first (use constants)
     if is_windows():
-        bundled_make = BUNDLED_LLVM_MINGW_DIR / "bin" / "mingw32-make.exe"
-        bundled_gcc = BUNDLED_LLVM_MINGW_DIR / "bin" / "gcc.exe"
-        if bundled_make.exists() and bundled_gcc.exists():
+        if BUNDLED_LLVM_MINGW_MAKE.exists() and BUNDLED_LLVM_MINGW_GCC.exists():
             return True, f"Bundled llvm-mingw found: {BUNDLED_LLVM_MINGW_DIR}", ""
 
     # Check make command (try both 'make' and 'mingw32-make' on Windows)
@@ -124,12 +117,11 @@ def check_perl() -> Tuple[bool, str, str]:
     Returns:
         Tuple of (is_valid, status_message, download_hint)
     """
-    # Check bundled Perl first
+    # Check bundled Perl first (use constants)
     if is_windows():
-        bundled_perl = BUNDLED_PERL_DIR / "perl" / "bin" / "perl.exe"
-        bundled_perl_alt = BUNDLED_PERL_DIR / "bin" / "perl.exe"
-        if bundled_perl.exists():
-            return True, f"Bundled Perl found: {bundled_perl}", ""
+        if BUNDLED_PERL_EXE.exists():
+            return True, f"Bundled Perl found: {BUNDLED_PERL_EXE}", ""
+        bundled_perl_alt = BUNDLED_PERL_BIN_ALT / "perl.exe"
         if bundled_perl_alt.exists():
             return True, f"Bundled Perl found: {bundled_perl_alt}", ""
 
@@ -139,11 +131,6 @@ def check_perl() -> Tuple[bool, str, str]:
     else:
         return False, "Perl 未安装", \
             "请运行 python scripts/download_tools.py 下载预打包工具"
-
-
-def check_command_exists(command: str) -> bool:
-    """Check if a command exists in PATH"""
-    return shutil.which(command) is not None
 
 
 def run_command(
@@ -313,17 +300,6 @@ def ensure_directory(path: Path) -> bool:
         return False
 
 
-def clean_directory(path: Path) -> bool:
-    """Clean a directory (remove all contents)"""
-    try:
-        if path.exists():
-            shutil.rmtree(path)
-        path.mkdir(parents=True, exist_ok=True)
-        return True
-    except Exception:
-        return False
-
-
 def get_git_branch(repo_path: Path) -> Optional[str]:
     """
     Get the current Git branch name for a repository.
@@ -416,82 +392,6 @@ def detect_qt_version(qt_source_path: Path) -> Tuple[str, str]:
 
     # Method 3: Default
     return "5.15.16", "default (no version detected)"
-
-
-def get_qt_version_config(version: str) -> dict:
-    """
-    Get version-specific configuration for Qt HarmonyOS build.
-
-    Different Qt versions may have different:
-    - Skip module lists
-    - Configure parameters
-    - Required tool versions
-
-    Args:
-        version: Qt version string (e.g., "5.12.12", "5.15.16")
-
-    Returns:
-        Dictionary with version-specific configuration
-    """
-    # Parse major.minor version
-    parts = version.split(".")
-    major = int(parts[0]) if parts else 5
-    minor = int(parts[1]) if len(parts) > 1 else 15
-
-    # Common skip modules for all versions (only modules that exist in Qt 5.12-5.15)
-    common_skip = [
-        "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-        "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
-        "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
-        "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
-        "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
-        "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
-        "qtspeech", "qtsystems", "qttools", "qttranslations",
-        "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
-        "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
-        "qtx11extras", "doc",
-    ]
-
-    # Version-specific configurations
-    if major == 5 and minor == 12:
-        # Qt 5.12 specific
-        return {
-            "skip_modules": common_skip,
-            "c++std": "c++14",
-            "opengl": ["es2", "opengles3"],
-            "extra_configure_options": ["-no-dbus"],
-            "notes": "Qt 5.12 LTS - uses -ohos-arch parameter, dbus disabled for HarmonyOS"
-        }
-    elif major == 5 and minor == 15:
-        # Qt 5.15 specific - use recommended skip list for HarmonyOS
-        qt15_skip = [
-            "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-            "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
-            "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
-            "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
-            "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
-            "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
-            "qtspeech", "qtsystems", "qttools", "qttranslations",
-            "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
-            "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
-            "qtx11extras", "qtopcua", "qtknx", "doc",
-        ]
-        return {
-            "skip_modules": qt15_skip,
-            "c++std": "c++14",
-            "opengl": ["es2", "opengles3"],
-            "extra_configure_options": ["-no-dbus"],
-            "notes": "Qt 5.15 LTS - recommended skip modules for HarmonyOS, dbus disabled"
-        }
-    else:
-        # Default configuration for unknown versions
-        return {
-            "skip_modules": common_skip,
-            "c++std": "c++14",
-            "opengl": ["es2", "opengles3"],
-            "extra_configure_options": ["-no-dbus"],
-            "notes": f"Unknown Qt version {version}, using default config, dbus disabled"
-        }
 
 
 def add_to_user_path(path_str: str) -> Tuple[bool, str]:
