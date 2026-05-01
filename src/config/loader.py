@@ -40,7 +40,22 @@ class ConfigManager:
                 data = yaml.safe_load(f)
 
             if data and "install" in data:
-                self.install_config = InstallConfig.from_dict(data["install"])
+                # Fix paths that may have broken backslash escaping
+                install_data = data["install"]
+                for key in ["harmony_sdk_path", "qt_source_path", "install_path", "make_path", "perl_path"]:
+                    if key in install_data and install_data[key]:
+                        path_val = install_data[key]
+                        # Fix paths like "d:DevEco" -> "D:/DevEco" (broken backslash)
+                        if isinstance(path_val, str) and len(path_val) >= 2:
+                            # Check for pattern like "d:path" without backslash after drive letter
+                            if path_val[1] == ':' and path_val[2:3] not in ['\\', '/']:
+                                # Insert missing backslash or convert to forward slash
+                                path_val = path_val[0:2] + '/' + path_val[2:]
+                            # Normalize all backslashes to forward slashes
+                            path_val = path_val.replace('\\', '/')
+                            install_data[key] = path_val
+
+                self.install_config = InstallConfig.from_dict(install_data)
 
                 # Initialize skip_modules if empty
                 if not self.install_config.skip_modules:

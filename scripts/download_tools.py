@@ -34,11 +34,12 @@ ARCHIVES_DIR = TOOLS_DIR / "archives"
 LLVM_MINGW_DIR = TOOLS_DIR / "llvm-mingw"
 PERL_DIR = TOOLS_DIR / "perl"
 
-LLVM_MINGW_ARCHIVE = ARCHIVES_DIR / "llvm-mingw-20240917-ucrt-x86_64.zip"
+LLVM_MINGW_ARCHIVE = ARCHIVES_DIR / "llvm-mingw-20260421-ucrt-x86_64.zip"
 PERL_ARCHIVE = ARCHIVES_DIR / "strawberry-perl-5.42.2.1-64bit-portable.zip"
 
-LLVM_MINGW_URL = "https://github.com/mstorsjo/llvm-mingw/releases/download/20240917/llvm-mingw-20240917-ucrt-x86_64.zip"
-PERL_URL = "https://github.com/StrawberryPerl/Perl-Dist-Strawberry/releases/download/SP_54221_64bit/strawberry-perl-5.42.2.1-64bit-portable.zip"
+# GitCode release URLs (https://gitcode.com/PERMISSION-DENIED/qtforoh_installer/releases/resource)
+LLVM_MINGW_URL = "https://gitcode.com/PERMISSION-DENIED/qtforoh_installer/releases/download/resource/llvm-mingw-20260421-ucrt-x86_64.zip"
+PERL_URL = "https://gitcode.com/PERMISSION-DENIED/qtforoh_installer/releases/download/resource/strawberry-perl-5.42.2.1-64bit-portable.zip"
 
 
 def format_size(size_bytes: int) -> str:
@@ -49,6 +50,18 @@ def format_size(size_bytes: int) -> str:
     return f"{size_bytes:.2f} TB"
 
 
+def is_lfs_pointer(file_path: Path) -> bool:
+    """Check if file is a Git LFS pointer (not actual content)"""
+    if not file_path.exists():
+        return False
+    try:
+        with open(file_path, 'rb') as f:
+            content = f.read(200)
+            return b'version https://git-lfs.github.com/spec/v1' in content
+    except:
+        return False
+
+
 def extract_zip(zip_path: Path, target_dir: Path, tool_name: str) -> bool:
     """Extract a zip file"""
     print(f"\n解压 {tool_name} / Extracting {tool_name}")
@@ -57,6 +70,12 @@ def extract_zip(zip_path: Path, target_dir: Path, tool_name: str) -> bool:
 
     if not zip_path.exists():
         print(f"  [错误] 压缩包不存在 / [ERROR] Archive not found")
+        return False
+
+    # Check for LFS pointer
+    if is_lfs_pointer(zip_path):
+        print(f"  [错误] 文件是 Git LFS 指针，非实际内容 / [ERROR] File is LFS pointer, not actual content")
+        print(f"  请删除该文件重新下载 / Please delete and re-download")
         return False
 
     zip_size = zip_path.stat().st_size
@@ -168,7 +187,12 @@ def extract_llvm_mingw() -> bool:
         print(f"\n[跳过] llvm-mingw 已存在 / [SKIP] Already exists: {LLVM_MINGW_DIR}")
         return True
 
-    if LLVM_MINGW_ARCHIVE.exists():
+    # Check if archive is LFS pointer - delete and re-download
+    if LLVM_MINGW_ARCHIVE.exists() and is_lfs_pointer(LLVM_MINGW_ARCHIVE):
+        print(f"\n[警告] 检测到 LFS 指针文件，删除并重新下载 / [WARN] LFS pointer detected, deleting")
+        LLVM_MINGW_ARCHIVE.unlink()
+
+    if LLVM_MINGW_ARCHIVE.exists() and not is_lfs_pointer(LLVM_MINGW_ARCHIVE):
         print(f"\n从本地压缩包解压 / Extracting from local archive")
         return extract_zip(LLVM_MINGW_ARCHIVE, LLVM_MINGW_DIR, "llvm-mingw")
 
@@ -190,7 +214,12 @@ def extract_perl() -> bool:
         print(f"\n[跳过] Perl 已存在 / [SKIP] Already exists: {PERL_DIR}")
         return True
 
-    if PERL_ARCHIVE.exists():
+    # Check if archive is LFS pointer - delete and re-download
+    if PERL_ARCHIVE.exists() and is_lfs_pointer(PERL_ARCHIVE):
+        print(f"\n[警告] 检测到 LFS 指针文件，删除并重新下载 / [WARN] LFS pointer detected, deleting")
+        PERL_ARCHIVE.unlink()
+
+    if PERL_ARCHIVE.exists() and not is_lfs_pointer(PERL_ARCHIVE):
         print(f"\n从本地压缩包解压 / Extracting from local archive")
         return extract_zip(PERL_ARCHIVE, PERL_DIR, "Perl")
 

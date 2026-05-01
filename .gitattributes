@@ -1,1 +1,2 @@
-tools/archives/*.zip filter=lfs diff=lfs merge=lfs -text
+# Archives are now downloaded from GitCode releases, not stored in repo
+# tools/archives/*.zip filter=lfs diff=lfs merge=lfs -text
