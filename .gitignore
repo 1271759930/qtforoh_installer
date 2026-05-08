@@ -34,6 +34,9 @@ ENV/
 *.swo
 *~
 
+# AI Tools
+.claude/
+
 # Tools - downloaded from GitCode releases, not stored in repo
 /tools/
 
