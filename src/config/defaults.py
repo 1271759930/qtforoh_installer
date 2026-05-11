@@ -73,7 +73,6 @@ QT_MODULE_DESCRIPTIONS: Dict[str, str] = {
     "qtcanvas3d": "Canvas 3D(已废弃)",
     "qtrepotools": "仓库管理工具",
     "qtqa": "Qt质量保证测试",
-    "qtdocgallery": "文档库查看(已废弃)",
 }
 
 # Module status mapping (based on .gitmodules status field)
@@ -134,7 +133,6 @@ QT_MODULE_STATUS_MAP: Dict[str, str] = {
     "qtcanvas3d": "ignore",
     "qtrepotools": "essential",  # 构建工具，不参与编译
     "qtqa": "essential",  # QA工具，不参与编译
-    "qtdocgallery": "ignore",
 }
 
 # Modules available for Qt 5.12 HarmonyOS
@@ -155,7 +153,7 @@ QT512_AVAILABLE_MODULES: List[str] = [
     # HarmonyOS specific
     "qtohosextras",
     # Ignore (should be skipped)
-    "qtsystems", "qtfeedback", "qtpim", "qtcanvas3d", "qtdocgallery",
+    "qtsystems", "qtfeedback", "qtpim", "qtcanvas3d",
 ]
 
 # Modules available for Qt 5.15 HarmonyOS (includes more modules)
@@ -178,7 +176,9 @@ QT515_AVAILABLE_MODULES: List[str] = [
     # HarmonyOS specific
     "qtohosextras",
     # Ignore (should be skipped)
-    "qtsystems", "qtfeedback", "qtpim", "qtcanvas3d", "qtdocgallery",
+    "qtsystems", "qtfeedback", "qtpim", "qtcanvas3d",
+    # Build/QA tools (not compiled, but listed for skip configuration)
+    "qtqa", "qtrepotools",
 ]
 
 # Modules that should NEVER be skipped (essential for HarmonyOS)
@@ -269,7 +269,7 @@ def get_available_modules(version: str, qt_source_path: Optional[Path] = None) -
 # Common skip modules for Qt 5.12 HarmonyOS build
 COMMON_SKIP_MODULES: List[str] = [
     "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-    "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
+    "qtconnectivity", "qtdatavis3d", "qtdoc",
     "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
     "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
     "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
@@ -280,18 +280,15 @@ COMMON_SKIP_MODULES: List[str] = [
     "qtx11extras", "doc",
 ]
 
-# Qt 5.15 recommended skip modules for HarmonyOS
+# Qt 5.15 recommended skip modules for HarmonyOS (based on wiki.qt.io/Building_Qt_for_HarmonyOS)
 QT15_SKIP_MODULES: List[str] = [
-    "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-    "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
-    "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
-    "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
-    "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",
-    "qtscxml", "qtsensors", "qtserialbus", "qtserialport",
-    "qtspeech", "qtsystems", "qttools", "qttranslations",
-    "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
-    "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
-    "qtx11extras", "qtopcua", "qtknx", "doc",
+    "doc", "qtactiveqt", "qtandroidextras", "qtcanvas3d", "qtdoc",
+    "qtfeedback", "qtgamepad", "qtlocation", "qtmacextras",
+    "qtnetworkauth", "qtpim", "qtpurchasing", "qtqa",
+    "qtremoteobjects", "qtrepotools", "qtscript", "qtsystems",
+    "qttools", "qtwayland", "qtwebchannel", "qtwebengine",
+    "qtwebglplugin", "qtwinextras", "qtx11extras", "qtopcua",
+    "qtknx", "qtconnectivity",
 ]
 
 

@@ -349,6 +349,9 @@ class ConfigCollector:
 
         available_modules.sort(key=module_sort_key)
 
+        # Get version-specific default skip modules from documentation
+        version_default_skip = get_default_skip_modules(qt_version)
+
         # Build choices with descriptions and status indicators
         choices = []
         for module in available_modules:
@@ -356,21 +359,21 @@ class ConfigCollector:
             status = get_module_status(module)
 
             # Determine if module should be checked (selected to skip)
-            # Essential modules: never checked by default
-            # Ignore/deprecated modules: always checked by default
-            # Other modules: use current selection
+            # Priority: Essential modules -> Version-specific defaults (highest priority)
+            # Version-specific defaults from wiki.qt.io are authoritative
             if is_module_essential(module):
                 is_checked = False  # Core modules never skip by default
                 status_indicator = "\033[92m[核心/Essential]\033[0m"
-            elif status == "ignore" or status == "deprecated":
-                is_checked = True  # Deprecated/ignore modules always skip
-                status_indicator = "\033[91m[废弃/Deprecated]\033[0m"
-            elif status == "preview":
-                is_checked = module in current_skip_modules
-                status_indicator = "\033[93m[预览/Preview]\033[0m"
+            elif module in version_default_skip:
+                # Use version-specific default from documentation (wiki.qt.io)
+                # This is the authoritative source for HarmonyOS builds
+                is_checked = True
+                status_indicator = "\033[93m[推荐跳过/Recommended]\033[0m"
             else:
+                # Module NOT in version-specific skip list -> NOT checked by default
+                # User can manually select if needed
                 is_checked = module in current_skip_modules
-                status_indicator = ""  # Addon modules no indicator
+                status_indicator = ""
 
             # Build display title
             if status_indicator:
