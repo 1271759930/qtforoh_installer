@@ -326,6 +326,10 @@ class QtBuilder:
         extra_options = version_config.get("extra_configure_options", [])
         cmd.extend(extra_options)
 
+        # OpenGL ES option
+        if self.config.force_opengl_es:
+            cmd.extend(["-opengl", "es2", "-opengles3"])
+
         return cmd
 
     def _verify_installation(self) -> None:

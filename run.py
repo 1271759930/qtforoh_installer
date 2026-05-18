@@ -12,7 +12,7 @@ Qt for HarmonyOS Installer - 一键启动脚本
     python run.py --help       # 显示帮助
 
 此脚本会自动:
-    1. 检查 Python 版本 (需要 >= 3.12)
+    1. 检查 Python 版本 (需要 >= 3.10)
     2. 检查并安装缺失的依赖
     3. 进入交互式菜单或执行指定命令
 """
@@ -30,16 +30,16 @@ if sys.platform == "win32":
 
 
 def check_python_version():
-    """检查 Python 版本是否 >= 3.12"""
+    """检查 Python 版本是否 >= 3.10"""
     version = sys.version_info
-    if version.major < 3 or (version.major == 3 and version.minor < 12):
+    if version.major < 3 or (version.major == 3 and version.minor < 10):
         print("=" * 50)
         print("错误: Python 版本过低")
         print(f"当前版本: Python {version.major}.{version.minor}.{version.micro}")
-        print("需要版本: Python >= 3.12")
+        print("需要版本: Python >= 3.10")
         print("=" * 50)
         print()
-        print("请从以下地址下载并安装 Python 3.12 或更高版本:")
+        print("请从以下地址下载并安装 Python 3.10 或更高版本:")
         print("  https://python.org/downloads/")
         sys.exit(1)
 

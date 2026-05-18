@@ -20,11 +20,15 @@ class InstallConfig:
     skip_modules: List[str] = field(default_factory=list)
     python_path: Optional[Path] = None
     version_source: str = "default"
+    force_opengl_es: bool = False  # Force OpenGL ES with -opengl es2 -opengles3
 
     @property
     def actual_install_path(self) -> Path:
-        """Get actual installation path with Qt version and architecture."""
+        """Get actual installation path with Qt version and architecture.
+        Includes '-gles' suffix if force_opengl_es is enabled."""
         folder_name = f"Qt{self.qt_version}-{self.architecture}"
+        if self.force_opengl_es:
+            folder_name += "-gles"
         return self.install_path / folder_name
 
     def to_dict(self) -> dict:
@@ -40,6 +44,7 @@ class InstallConfig:
             "skip_modules": self.skip_modules,
             "python_path": str(self.python_path) if self.python_path else None,
             "version_source": self.version_source,
+            "force_opengl_es": self.force_opengl_es,
         }
 
     @classmethod
@@ -58,6 +63,7 @@ class InstallConfig:
             skip_modules=data.get("skip_modules", []),
             python_path=Path(python_path) if python_path else None,
             version_source=data.get("version_source", "default"),
+            force_opengl_es=data.get("force_opengl_es", False),
         )
 
 

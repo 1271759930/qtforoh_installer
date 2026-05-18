@@ -64,9 +64,9 @@ def is_windows() -> bool:
 def check_python_version() -> Tuple[bool, str]:
     """Check if Python version meets requirements"""
     version = sys.version_info
-    if version.major >= 3 and version.minor >= 12:
+    if version.major >= 3 and version.minor >= 10:
         return True, f"Python {version.major}.{version.minor}.{version.micro}"
-    return False, f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.12)"
+    return False, f"Python {version.major}.{version.minor}.{version.micro} (requires >= 3.10)"
 
 
 def check_llvm_mingw() -> Tuple[bool, str, str]:

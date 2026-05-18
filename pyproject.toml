@@ -7,12 +7,11 @@ name = "qtohos-installer"
 version = "1.0.0"
 description = "Qt for HarmonyOS Installation CLI Tool"
 readme = "README.md"
-# Python 3.12 is required for:
-# - Improved type hints and generics (PEP 695)
-# - Better subprocess handling
-# - Modern pathlib features
-# - Enhanced f-string parsing
-requires-python = ">=3.12"
+# Python 3.10 is required for:
+# - Type hints with union operator (PEP 604)
+# - Match statements (PEP 634) - available but not required
+# - Dataclasses with field(default_factory) - used in schema.py
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Qt HarmonyOS Installer Team"}
@@ -25,6 +24,8 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Build Tools",
@@ -70,10 +71,10 @@ src = ["*.yaml", "*.json"]
 
 [tool.black]
 line-length = 100
-target-version = ['py312']
+target-version = ['py310']
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

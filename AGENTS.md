@@ -14,7 +14,7 @@ python scripts/download_tools.py  # Download bundled tools (llvm-mingw + Perl)
 
 ## Python Version
 
-**Hard requirement: Python >= 3.12**. Tool will refuse to run on older versions. Check enforced in `run.py:32` and `src/core/installer.py:96`.
+**Hard requirement: Python >= 3.10**. Tool will refuse to run on older versions. Check enforced in `run.py:32` and `src/core/installer.py:96`.
 
 ## Bundled Tools
 
