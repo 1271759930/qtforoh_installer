@@ -3,7 +3,7 @@ Step executor - Executes installation steps
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from .steps import InstallStep
 from ..ui.display import Display

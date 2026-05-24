@@ -178,7 +178,7 @@ QT515_AVAILABLE_MODULES: List[str] = [
     # HarmonyOS specific
     "qtohosextras",
     # Ignore (should be skipped)
-    "qtsystems", "qtfeedback", "qtpim", "qtcanvas3d", "qtdocgallery",
+    "qtsystems", "qtfeedback", "qtpim", "qtcanvas3d",
 ]
 
 # Modules that should NEVER be skipped (essential for HarmonyOS)
@@ -283,7 +283,7 @@ COMMON_SKIP_MODULES: List[str] = [
 # Qt 5.15 recommended skip modules for HarmonyOS
 QT15_SKIP_MODULES: List[str] = [
     "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
-    "qtconnectivity", "qtdatavis3d", "qtdoc", "qtdocgallery",
+    "qtconnectivity", "qtdatavis3d", "qtdoc",
     "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
     "qtmacextras", "qtnetworkauth", "qtpim", "qtpurchasing",
     "qtqa", "qtremoteobjects", "qtrepotools", "qtscript",

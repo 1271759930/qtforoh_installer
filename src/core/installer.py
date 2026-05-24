@@ -15,7 +15,6 @@ from ..config.defaults import get_qt_version_config
 from ..ui.display import Display
 from ..ui.prompts import ConfigCollector
 from ..tools.downloader import ToolDownloader
-from ..builder.env_setup import EnvironmentManager
 from ..builder.qt_builder import QtBuilder
 from ..utils import setup_logging, check_python_version, is_windows, add_to_user_path
 from ..constants import BUNDLED_LLVM_MINGW_DIR, BUNDLED_PERL_DIR
@@ -46,7 +45,6 @@ class QtHarmonyInstaller:
         # Build components (initialized during execution)
         self.logger: Optional[logging.Logger] = None
         self.downloader: Optional[ToolDownloader] = None
-        self.env_manager: Optional[EnvironmentManager] = None
         self.builder: Optional[QtBuilder] = None
 
     def run(self) -> bool:
@@ -284,38 +282,48 @@ class QtHarmonyInstaller:
             return False
 
     def setup_environment(self) -> bool:
-        """Setup environment variables - Step 5 / 设置环境变量 - 步骤5"""
+        """Validate build paths - Step 5 / 验证构建路径 - 步骤5"""
         config = self.config_manager.install_config
         if not config:
             self.display.show_error("配置未加载 / Configuration not loaded")
             return False
 
-        self.env_manager = EnvironmentManager(config)
-        self.env_manager.setup_environment()
+        all_ok = True
 
-        if self.env_manager.validate_environment():
-            self.display.show_success("环境设置完成 / Environment setup complete")
+        if not config.qt_source_path.exists():
+            self.display.show_error(f"Qt source not found: {config.qt_source_path}")
+            all_ok = False
+        else:
+            self.display.show_success(f"Qt source: {config.qt_source_path}")
 
-            # Save environment script
-            env_script = (
-                self.workspace / "setup_env.bat"
-                if is_windows()
-                else self.workspace / "setup_env.sh"
-            )
-            self.env_manager.save_environment_script(env_script)
+        native = config.harmony_sdk_path / "native"
+        if not native.exists():
+            self.display.show_error(f"HarmonyOS SDK native not found: {native}")
+            all_ok = False
+        else:
+            self.display.show_success(f"HarmonyOS SDK: {config.harmony_sdk_path}")
 
-            return True
+        llvm = native / "llvm" / "bin"
+        if llvm.exists():
+            self.display.show_success(f"LLVM compiler: {llvm}")
+        else:
+            self.display.show_error(f"LLVM compiler not found: {llvm}")
+            all_ok = False
+
+        if all_ok:
+            self.display.show_success("环境验证完成 / Environment validation complete")
         else:
             self.display.show_error("环境验证失败 / Environment validation failed")
-            return False
+
+        return all_ok
 
     def build_qt(self) -> bool:
         """Build and install Qt - Step 6 / 构建并安装Qt - 步骤6"""
         config = self.config_manager.install_config
-        if not config or not self.env_manager:
-            self.display.show_error("配置或环境未设置 / Configuration or environment not setup")
+        if not config:
+            self.display.show_error("配置未设置 / Configuration not setup")
             return False
 
-        self.builder = QtBuilder(config, self.env_manager, self.logger, self.workspace)
+        self.builder = QtBuilder(config, self.logger, self.workspace)
 
         return self.builder.build_all()
