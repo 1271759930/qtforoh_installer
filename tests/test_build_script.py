@@ -5,7 +5,7 @@ sys.path.insert(0, "scripts")
 from pathlib import Path
 import build_qt_ohos as b
 
-data = b.load_config(Path("test_build_config.yaml"))
+data = b.load_config(Path("temp/test_gles_config.yaml"))
 config = b.config_from_dict(data)
 build_dir = Path("temp/test_build")
 build_dir.mkdir(parents=True, exist_ok=True)

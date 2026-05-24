@@ -276,6 +276,46 @@ class ConfigCollector:
         print(f"\033[92m  ✓ 已选择 / Selected: {response}\033[0m")
         return response
 
+    def collect_force_opengl_es(self, default: bool = False) -> bool:
+        """Collect Force OpenGL ES option / 收集强制OpenGL ES选项
+        
+        When enabled, configure will use -opengl es2 -opengles3 flags.
+        This ensures OpenGL ES is used instead of Desktop OpenGL.
+        """
+        self._print_header("OpenGL 配置 / OpenGL Configuration")
+
+        print("Qt for HarmonyOS 支持 Desktop OpenGL 和 OpenGL ES。")
+        print("默认情况下，Qt 会自动检测使用哪种 OpenGL。")
+        print()
+        print("强制使用 OpenGL ES (-opengl es2 -opengles3) 可确保兼容性，")
+        print("特别是在某些设备或SDK版本不支持 Desktop OpenGL 时。")
+        print()
+        print("Qt for HarmonyOS supports both Desktop OpenGL and OpenGL ES.")
+        print("By default, Qt auto-detects which OpenGL to use.")
+        print()
+        print("Force OpenGL ES (-opengl es2 -opengles3) ensures compatibility,")
+        print("especially when some devices or SDK versions don't support Desktop OpenGL.")
+        print()
+        print("\033[93m参考文档 / Reference:\033[0m https://wiki.qt.io/Building_Qt_for_HarmonyOS")
+        print()
+
+        response = questionary.confirm(
+            "强制使用 OpenGL ES? (不勾选则自动检测) / Force OpenGL ES? (Leave unchecked for auto-detect)",
+            default=default,
+            style=CUSTOM_STYLE,
+        ).ask()
+
+        if response is None:
+            raise KeyboardInterrupt("用户取消安装 / Installation cancelled by user")
+
+        if response:
+            print(f"\033[92m  ✓ 已启用强制 OpenGL ES / Force OpenGL ES enabled\033[0m")
+            print(f"\033[92m  ✓ 将使用配置参数: -opengl es2 -opengles3\033[0m")
+        else:
+            print(f"\033[92m  ✓ 将使用自动检测 OpenGL / Auto-detect OpenGL\033[0m")
+
+        return response
+
     def collect_parallel_jobs(self, default: int = 8) -> int:
         """Collect number of parallel jobs / 收集并行任务数"""
         self._print_header("并行构建任务数 / Parallel Build Jobs")
@@ -349,6 +389,9 @@ class ConfigCollector:
 
         available_modules.sort(key=module_sort_key)
 
+        # Get version-specific default skip modules from documentation
+        version_default_skip = get_default_skip_modules(qt_version)
+
         # Build choices with descriptions and status indicators
         choices = []
         for module in available_modules:
@@ -356,21 +399,21 @@ class ConfigCollector:
             status = get_module_status(module)
 
             # Determine if module should be checked (selected to skip)
-            # Essential modules: never checked by default
-            # Ignore/deprecated modules: always checked by default
-            # Other modules: use current selection
+            # Priority: Essential modules -> Version-specific defaults (highest priority)
+            # Version-specific defaults from wiki.qt.io are authoritative
             if is_module_essential(module):
                 is_checked = False  # Core modules never skip by default
                 status_indicator = "\033[92m[核心/Essential]\033[0m"
-            elif status == "ignore" or status == "deprecated":
-                is_checked = True  # Deprecated/ignore modules always skip
-                status_indicator = "\033[91m[废弃/Deprecated]\033[0m"
-            elif status == "preview":
-                is_checked = module in current_skip_modules
-                status_indicator = "\033[93m[预览/Preview]\033[0m"
+            elif module in version_default_skip:
+                # Use version-specific default from documentation (wiki.qt.io)
+                # This is the authoritative source for HarmonyOS builds
+                is_checked = True
+                status_indicator = "\033[93m[推荐跳过/Recommended]\033[0m"
             else:
+                # Module NOT in version-specific skip list -> NOT checked by default
+                # User can manually select if needed
                 is_checked = module in current_skip_modules
-                status_indicator = ""  # Addon modules no indicator
+                status_indicator = ""
 
             # Build display title
             if status_indicator:
@@ -563,6 +606,7 @@ class ConfigCollector:
             ("Qt版本 / Qt Version", f"{config.qt_version} ({config.version_source})"),
             ("构建类型 / Build Type", config.build_type),
             ("并行任务 / Parallel Jobs", str(config.parallel_jobs)),
+            ("强制OpenGL ES / Force OpenGL ES", "是 / Yes" if config.force_opengl_es else "否 / No (自动检测 / auto-detect)"),
         ]
 
         if config.python_path:
@@ -599,6 +643,7 @@ class ConfigCollector:
                 questionary.Choice(f"并行任务 / Parallel Jobs:       {config.parallel_jobs}", value="7"),
                 questionary.Choice(f"Python路径 / Python Path:       {config.python_path or '系统Python / System Python'}", value="8"),
                 questionary.Choice(f"跳过模块 / Skip Modules:        {len(config.skip_modules)} 个模块 / modules", value="9"),
+                questionary.Choice(f"强制OpenGL ES / Force OpenGL ES: {'是 / Yes' if config.force_opengl_es else '否 / No'}", value="10"),
                 questionary.Choice("─" * 40, value="separator", disabled=True),
                 questionary.Choice("✓ 完成 - 返回确认 / Done - Return to confirmation", value="done"),
                 questionary.Choice("✗ 取消安装 / Cancel installation", value="cancel"),
@@ -659,6 +704,10 @@ class ConfigCollector:
                     qt_version=config.qt_version,
                     qt_source_path=config.qt_source_path
                 )
+            elif response == "10":
+                config.force_opengl_es = self.collect_force_opengl_es(
+                    default=config.force_opengl_es
+                )
 
     def show_welcome(self) -> None:
         """Show welcome message / 显示欢迎信息"""
@@ -678,7 +727,7 @@ class ConfigCollector:
         print("  3. Compiling and installing Qt")
         print()
         print("\033[93m前置条件 / Prerequisites:\033[0m")
-        print("  • Python >= 3.12")
+        print("  • Python >= 3.10")
         print("  • Git >= 2.39.3")
         print("  • HarmonyOS SDK (API >= 15, 推荐API 17 / recommended API 17)")
         print("  • Qt源代码 / Qt source code (tqtc-qt5)")
@@ -776,6 +825,9 @@ class ConfigCollector:
         build_type = self.collect_build_type()
         parallel_jobs = self.collect_parallel_jobs()
 
+        # Collect OpenGL ES option
+        force_opengl_es = self.collect_force_opengl_es()
+
         # Collect Python path (optional)
         python_path = self.collect_python_path()
 
@@ -814,7 +866,8 @@ class ConfigCollector:
             parallel_jobs=parallel_jobs,
             skip_modules=skip_modules,
             python_path=python_path,
-            version_source=version_source
+            version_source=version_source,
+            force_opengl_es=force_opengl_es,
         )
 
         # Confirm configuration (allows modification via menu)

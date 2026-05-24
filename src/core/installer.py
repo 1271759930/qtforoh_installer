@@ -118,7 +118,7 @@ class QtHarmonyInstaller:
         is_valid, version = check_python_version()
         if not is_valid:
             self.display.show_error(version)
-            self.display.print("[red]需要Python版本 >= 3.12 / Python version >= 3.12 is required[/red]")
+            self.display.print("[red]需要Python版本 >= 3.10 / Python version >= 3.10 is required[/red]")
             return False
 
         self.display.show_success(f"Python版本 / Python version: {version}")

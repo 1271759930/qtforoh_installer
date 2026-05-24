@@ -48,10 +48,14 @@ class BuildConfig:
     skip_modules: List[str] = field(default_factory=list)
     mingw_bin: str = ""
     perl_root: str = ""
+    force_opengl_es: bool = False
 
     @property
     def actual_install_path(self) -> Path:
-        return self.install_path / f"Qt{self.qt_version}-{self.architecture}"
+        folder = f"Qt{self.qt_version}-{self.architecture}"
+        if self.force_opengl_es:
+            folder += "-gles"
+        return self.install_path / folder
 
 
 QT_VERSION_CONFIGS = {
@@ -150,6 +154,7 @@ def config_from_dict(data: dict) -> BuildConfig:
         skip_modules=install.get("skip_modules", []),
         mingw_bin=install.get("mingw_bin", ""),
         perl_root=install.get("perl_root", ""),
+        force_opengl_es=bool(install.get("force_opengl_es", False)),
     )
 
 
@@ -209,6 +214,7 @@ def validate_config(config: BuildConfig) -> bool:
     print(f"[OK] Architecture: {config.architecture}")
     print(f"[OK] Qt version: {config.qt_version}")
     print(f"[OK] Build type: {config.build_type}")
+    print(f"[OK] Force OpenGL ES: {'Yes' if config.force_opengl_es else 'No (auto-detect)'}")
     print(f"[OK] Install path: {config.actual_install_path}")
 
     return ok
@@ -345,6 +351,9 @@ def generate_configure_args(config: BuildConfig, win: bool) -> List[str]:
         args.extend(["-skip", m])
 
     args.extend(vc.get("extra_options", []))
+
+    if config.force_opengl_es:
+        args.extend(["-opengl", "es2", "-opengles3"])
 
     return args
 
@@ -485,6 +494,7 @@ def _generate_bat(config: BuildConfig, build_dir: Path) -> Path:
     extra_args = " ".join(vc.get("extra_options", []))
     cxx_std = vc.get("c++std", "c++14")
     build_type_opt = "-debug" if config.build_type == "debug" else "-release"
+    opengl_args = "-opengl es2 -opengles3" if config.force_opengl_es else ""
 
     if (Path(qt_source) / "qtbase" / "configure.bat").exists():
         configure_script = f"{qt_source}\\qtbase\\configure.bat"
@@ -503,6 +513,7 @@ def _generate_bat(config: BuildConfig, build_dir: Path) -> Path:
         "echo ============================================",
         "echo Qt for HarmonyOS Build Script",
         f"echo Qt Version: {config.qt_version}",
+        f"echo Force OpenGL ES: {'Yes (-opengl es2 -opengles3)' if config.force_opengl_es else 'No (auto-detect)'}",
         "echo ============================================",
         "echo.",
         "",
@@ -565,7 +576,7 @@ def _generate_bat(config: BuildConfig, build_dir: Path) -> Path:
         f" -opensource -confirm-license {build_type_opt}"
         f" -no-use-gold-linker -no-gcc-sysroot"
         f" -c++std {cxx_std} -ohos-arch {config.architecture}"
-        f" {skip_args} {extra_args}"
+        f" {skip_args} {extra_args} {opengl_args}"
         f" -nomake tests -nomake examples",
         "",
         "if %errorlevel% neq 0 echo [ERROR] Configure failed: %errorlevel%",

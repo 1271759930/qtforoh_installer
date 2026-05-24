@@ -1,0 +1,43 @@
+# Qt for HarmonyOS Installation Configuration
+# Copy this file to config.yaml and modify paths for your environment
+
+# Qt Source Code Path
+# Path to Qt source code (tqtc-qt5 repository)
+qt_source_path: "D:/code/tqtc-qt5"
+
+# HarmonyOS SDK Path
+# Path to HarmonyOS SDK (from DevEco Studio installation)
+harmony_sdk_path: "C:/Users/YourName/Library/OpenHarmony/Sdk/17"
+
+# Installation Path
+# Where to install the compiled Qt libraries
+install_path: "D:/code/qt_install"
+
+# Target Architecture
+# Options: arm64-v8a (default), x86_64
+architecture: "arm64-v8a"
+
+# Qt Version
+# Options: 5.12.12, 5.15.16 (default)
+qt_version: "5.15.16"
+
+# Build Type
+# Options: release (default), debug
+build_type: "release"
+
+# Parallel Build Jobs
+# Number of parallel make jobs (default: 8)
+parallel_jobs: 8
+
+# Python Path (Optional)
+# Used for QML compilation. Leave empty to use system Python.
+python_path: null
+
+# Version Source
+# Where the version comes from: "default", "source", "manual"
+version_source: "default"
+
+# Skip Modules (Optional)
+# Qt modules to skip during build. Leave empty to use defaults.
+# See src/config/defaults.py for default skip lists per version.
+skip_modules: []
