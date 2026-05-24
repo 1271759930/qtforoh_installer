@@ -2,14 +2,31 @@
 
 Quick reference for OpenCode sessions working in this repo.
 
+## Git Remotes
+
+**Two remotes must be kept in sync. Push to both after every commit.**
+
+```
+origin   -> git@github.com:1271759930/qtforoh_installer.git
+upstream -> https://gitcode.com/PERMISSION-DENIED/qtforoh_installer.git
+```
+
+After committing:
+```
+git push origin master
+git push upstream master
+```
+
 ## Entry Points
 
 ```
-python run.py              # Wrapper: checks Python >= 3.12, auto-installs deps, then runs CLI
+python run.py              # Wrapper: checks Python >= 3.10, auto-installs deps, then runs CLI
 python -m src.cli          # Direct module execution (requires deps pre-installed)
 python -m src.cli install  # Interactive installation
 python -m src.cli check    # Verify prerequisites
-python scripts/download_tools.py  # Download bundled tools (llvm-mingw + Perl)
+python scripts/build_qt_ohos.py config.yaml        # Standalone build script (callable by any tool/AI/CI)
+python scripts/build_qt_ohos.py config.yaml --dry-run  # Validate config without building
+python scripts/download_tools.py                    # Download bundled tools (llvm-mingw + Perl)
 ```
 
 ## Python Version
@@ -76,9 +93,10 @@ User config saved to `config.yaml` (copy from `config.example.yaml`).
 src/cli.py              -> CLI entry (Click commands)
 src/core/installer.py   -> Flow orchestrator
 src/core/steps.py       -> Step definitions (modifiable)
-src/builder/qt_builder.py -> Qt compile execution
-src/builder/script_gen.py -> Windows batch script generator
+src/builder/qt_builder.py -> Qt compile execution (calls standalone build script)
+src/builder/script_gen.py -> Windows batch script generator (legacy, kept for reference)
 src/config/defaults.py  -> Version-specific skip modules, configure options
+scripts/build_qt_ohos.py -> Standalone build script (only Qt compilation env vars)
 scripts/download_tools.py -> Download bundled llvm-mingw + Perl
 ```
 
