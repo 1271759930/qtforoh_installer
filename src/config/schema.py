@@ -18,6 +18,7 @@ class InstallConfig:
     build_type: str = "release"
     parallel_jobs: int = 8
     skip_modules: List[str] = field(default_factory=list)
+    nomake_targets: List[str] = field(default_factory=lambda: ["doc", "examples", "tests"])
     python_path: Optional[Path] = None
     version_source: str = "default"
     force_opengl_es: bool = False  # Force OpenGL ES with -opengl es2 -opengles3
@@ -42,6 +43,7 @@ class InstallConfig:
             "build_type": self.build_type,
             "parallel_jobs": self.parallel_jobs,
             "skip_modules": self.skip_modules,
+            "nomake_targets": self.nomake_targets,
             "python_path": str(self.python_path) if self.python_path else None,
             "version_source": self.version_source,
             "force_opengl_es": self.force_opengl_es,
@@ -61,6 +63,7 @@ class InstallConfig:
             build_type=data.get("build_type", "release"),
             parallel_jobs=data.get("parallel_jobs", 8),
             skip_modules=data.get("skip_modules", []),
+            nomake_targets=data.get("nomake_targets", ["doc", "examples", "tests"]),
             python_path=Path(python_path) if python_path else None,
             version_source=data.get("version_source", "default"),
             force_opengl_es=data.get("force_opengl_es", False),

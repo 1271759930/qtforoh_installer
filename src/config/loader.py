@@ -7,7 +7,7 @@ from typing import Optional
 import yaml
 
 from .schema import InstallConfig, ToolConfig
-from .defaults import get_default_skip_modules
+from .defaults import get_default_skip_modules, get_default_nomake_targets
 
 
 class ConfigManager:
@@ -63,6 +63,12 @@ class ConfigManager:
                         self.install_config.qt_version
                     )
 
+                # Initialize nomake_targets if empty
+                if not self.install_config.nomake_targets:
+                    self.install_config.nomake_targets = get_default_nomake_targets(
+                        self.install_config.qt_version
+                    )
+
                 return True
         except Exception as e:
             print(f"Failed to load config: {e}")
@@ -83,6 +89,7 @@ class ConfigManager:
     ) -> InstallConfig:
         """Create a new configuration with defaults"""
         skip_modules = get_default_skip_modules(qt_version)
+        nomake_targets = get_default_nomake_targets(qt_version)
 
         self.install_config = InstallConfig(
             qt_source_path=qt_source_path,
@@ -93,6 +100,7 @@ class ConfigManager:
             build_type=build_type,
             parallel_jobs=parallel_jobs,
             skip_modules=skip_modules,
+            nomake_targets=nomake_targets,
             python_path=python_path,
             version_source=version_source,
         )

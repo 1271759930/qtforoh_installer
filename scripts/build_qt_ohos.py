@@ -36,6 +36,85 @@ def is_windows() -> bool:
     return platform.system() == "Windows"
 
 
+def _get_windows_short_path(long_path: str) -> str:
+    """Get Windows 8.3 short path name to handle paths with spaces.
+
+    Qt's ohos-clang mkspec does NOT quote compiler paths built from env vars
+    like ``NATIVE_OHOS_SDK``.  A path such as ``C:\\Program Files\\Huawei\\...``
+    is therefore split at the first space and clang++ invocation fails with::
+
+        Cannot run target compiler 'C:\\Program Files\\Huawei\\...'
+
+    Converting to the DOS-style short name (``C:\\PROGRA~1\\...``) avoids this.
+
+    When the leaf component of *long_path* does not yet exist (e.g. the
+    install directory that gets created during ``make install``), this
+    function walks up the path to find the deepest existing ancestor,
+    converts that to its short form, and re-attaches the missing tail.
+
+    Returns the original *long_path* when conversion fails or the path does
+    not contain spaces.
+    """
+    if " " not in long_path:
+        return long_path
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
+        GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+        GetShortPathNameW.restype = wintypes.DWORD
+
+        def _try_short(path: str) -> str:
+            buf_size = GetShortPathNameW(path, None, 0)
+            if buf_size > 0:
+                buf = ctypes.create_unicode_buffer(buf_size)
+                if GetShortPathNameW(path, buf, buf_size) > 0:
+                    return buf.value
+            return ""
+
+        # Fast path: the full path exists
+        result = _try_short(long_path)
+        if result:
+            return result
+
+        # Walk up until we find an existing ancestor, then re-attach the tail.
+        p = Path(long_path)
+        tail_parts: list[str] = []
+        current = p
+        while current != current.parent:
+            tail_parts.append(current.name)
+            current = current.parent
+            if current.exists():
+                ancestor_short = _try_short(str(current))
+                if ancestor_short:
+                    # Rebuild path: short ancestor + original tail segments
+                    rebuilt = ancestor_short
+                    for part in reversed(tail_parts):
+                        rebuilt = rebuilt + "\\" + part
+                    # The rebuilt path may still have spaces in the tail
+                    # segments, but those are user-controlled names (e.g.
+                    # "Qt5.15.16-arm64-v8a") and typically don't contain
+                    # spaces.  If they do, create the directory first so
+                    # that a second conversion pass can shorten them.
+                    return rebuilt
+                break
+        return long_path
+    except Exception:
+        pass
+    return long_path
+
+
+def _ensure_short_on_windows(path: str) -> str:
+    """Convert *path* to its 8.3 short form on Windows when it contains spaces.
+
+    On other platforms the path is returned unchanged.
+    """
+    if not is_windows():
+        return path
+    return _get_windows_short_path(path)
+
+
 @dataclass
 class BuildConfig:
     qt_source_path: Path
@@ -233,21 +312,26 @@ def setup_windows_env(config: BuildConfig) -> Dict[str, str]:
     env["QMAKEFEATURES"] = ""
 
     if config.mingw_bin:
-        env["PATH"] += f";{config.mingw_bin}"
+        mingw = _ensure_short_on_windows(config.mingw_bin)
+        env["PATH"] += f";{mingw}"
 
     if config.perl_root:
-        perl_bin = _find_perl_bin(config.perl_root)
+        perl_root = _ensure_short_on_windows(config.perl_root)
+        perl_bin = _find_perl_bin(perl_root)
         if perl_bin:
+            perl_bin = _ensure_short_on_windows(perl_bin)
             env["PATH"] += f";{perl_bin}"
-        perl_root_path = Path(config.perl_root)
+        perl_root_path = Path(perl_root)
         env["PERL5LIB"] = ";".join([
             str(perl_root_path / "perl" / "lib"),
             str(perl_root_path / "perl" / "vendor" / "lib"),
             str(perl_root_path / "perl" / "site" / "lib"),
         ])
 
-    sdk = str(config.harmony_sdk_path)
-    llvm_bin = str(config.harmony_sdk_path / "native" / "llvm" / "bin")
+    # Convert SDK path to short form on Windows to avoid space-related
+    # truncation when Qt's ohos-clang mkspec builds unquoted compiler paths.
+    sdk = _ensure_short_on_windows(str(config.harmony_sdk_path))
+    llvm_bin = f"{sdk}\\native\\llvm\\bin"
     env["PATH"] += f";{llvm_bin}"
 
     env["NATIVE_OHOS_SDK"] = f"{sdk}\\native"
@@ -327,13 +411,15 @@ def generate_configure_args(config: BuildConfig, win: bool) -> List[str]:
     args.extend(["-xplatform", "ohos-clang"])
 
     if win:
-        llvm_bin = str(config.harmony_sdk_path / "native" / "llvm" / "bin")
+        llvm_bin = _ensure_short_on_windows(
+            str(config.harmony_sdk_path / "native" / "llvm" / "bin")
+        )
         args.extend(["-device-option", f"CROSS_COMPILE={llvm_bin}"])
 
     device_prefix = f"/data/storage/el1/bundle/libs/{config.architecture.split('-')[0]}"
     args.extend([
         "-prefix", device_prefix,
-        "-extprefix", str(config.actual_install_path),
+        "-extprefix", _ensure_short_on_windows(str(config.actual_install_path)),
         "-opensource", "-confirm-license",
         "-no-use-gold-linker", "-no-gcc-sysroot",
     ])
@@ -472,20 +558,29 @@ def _build_windows(config: BuildConfig, build_dir: Path) -> bool:
 
 
 def _generate_bat(config: BuildConfig, build_dir: Path) -> Path:
-    mingw_bin = config.mingw_bin
-    perl_root = config.perl_root
+    # Convert tool paths to short form to handle spaces in Windows paths.
+    # Qt's ohos-clang mkspec builds unquoted compiler paths from env vars,
+    # so any space causes truncation (e.g. "C:\Program Files\..." → "C:\Program").
+    mingw_bin = _ensure_short_on_windows(config.mingw_bin) if config.mingw_bin else ""
+    perl_root = _ensure_short_on_windows(config.perl_root) if config.perl_root else ""
 
     perl_bin = ""
     if perl_root:
         pb = _find_perl_bin(perl_root)
         if pb:
-            perl_bin = pb
+            perl_bin = _ensure_short_on_windows(pb)
 
-    sdk = str(config.harmony_sdk_path)
+    # Convert SDK path to short form (critical for paths with spaces)
+    sdk = _ensure_short_on_windows(str(config.harmony_sdk_path))
     llvm_bin = f"{sdk}\\native\\llvm\\bin"
-    install_path = str(config.actual_install_path)
-    qt_source = str(config.qt_source_path)
-    build_dir_str = str(build_dir)
+
+    # Ensure the install directory exists so GetShortPathNameW can resolve
+    # every path segment (the build would create it anyway via make install).
+    install_path_obj = config.actual_install_path
+    install_path_obj.mkdir(parents=True, exist_ok=True)
+    install_path = _ensure_short_on_windows(str(install_path_obj))
+    qt_source = _ensure_short_on_windows(str(config.qt_source_path))
+    build_dir_str = _ensure_short_on_windows(str(build_dir))
 
     device_prefix = f"/data/storage/el1/bundle/libs/{config.architecture.split('-')[0]}"
 

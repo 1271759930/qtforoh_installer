@@ -55,9 +55,16 @@ REM SET PERL_ROOT=C:\Strawberry\perl\bin
 REM ========================================
 REM PATH Updates
 REM ========================================
-REM Add tool directories to PATH
+REM Add HOST-TOOL directories to PATH (mingw make, perl).
+REM
+REM WARNING: Do NOT add %LLVM_INSTALL_DIR%\bin to PATH!
+REM That folder contains OHOS cross-compilers (arm64/x86_64 clang/clang++)
+REM that cannot run on Windows. qmake resolves them via the NATIVE_OHOS_SDK
+REM environment variable in the ohos-clang mkspec. If that folder is in
+REM PATH, qmake will mistakenly try to run the cross-compilers directly
+REM and fail with "Cannot run target compiler '...clang++'".
 
-SET PATH=%LLVM_INSTALL_DIR%\bin;%MINGW_ROOT%;%PERL_ROOT%;%PATH%
+SET PATH=%MINGW_ROOT%;%PERL_ROOT%;%PATH%
 
 echo Environment variables configured.
 echo.

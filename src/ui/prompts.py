@@ -15,6 +15,7 @@ from ..config.defaults import (
     is_module_essential,
     get_available_modules,
     get_default_skip_modules,
+    get_default_nomake_targets,
 )
 from ..utils import validate_path, detect_qt_version
 
@@ -392,28 +393,25 @@ class ConfigCollector:
         # Get version-specific default skip modules from documentation
         version_default_skip = get_default_skip_modules(qt_version)
 
-        # Build choices with descriptions and status indicators
+# Build choices with descriptions and status indicators
         choices = []
         for module in available_modules:
             description = get_module_description(module)
             status = get_module_status(module)
 
-            # Determine if module should be checked (selected to skip)
-            # Priority: Essential modules -> Version-specific defaults (highest priority)
-            # Version-specific defaults from wiki.qt.io are authoritative
+            # Determine checkbox state from current_skip_modules (user's selection)
+            # NOT from version_default_skip - that's only for initial defaults
             if is_module_essential(module):
-                is_checked = False  # Core modules never skip by default
+                is_checked = False  # Core modules never skip
                 status_indicator = "\033[92m[核心/Essential]\033[0m"
-            elif module in version_default_skip:
-                # Use version-specific default from documentation (wiki.qt.io)
-                # This is the authoritative source for HarmonyOS builds
-                is_checked = True
-                status_indicator = "\033[93m[推荐跳过/Recommended]\033[0m"
             else:
-                # Module NOT in version-specific skip list -> NOT checked by default
-                # User can manually select if needed
+                # Checkbox state reflects current_skip_modules (preserve user's changes)
                 is_checked = module in current_skip_modules
-                status_indicator = ""
+                # Show "Recommended" tag if in version default skip list
+                if module in version_default_skip:
+                    status_indicator = "\033[93m[推荐跳过/Recommended]\033[0m"
+                else:
+                    status_indicator = ""
 
             # Build display title
             if status_indicator:
@@ -446,6 +444,71 @@ class ConfigCollector:
 
         print(f"\033[92m  ✓ 已选择 {len(final_skip)} 个模块跳过 / Selected {len(final_skip)} modules to skip\033[0m")
         return final_skip
+
+    def collect_nomake_targets(
+        self,
+        current_nomake_targets: List[str],
+        qt_version: str = "5.15.16"
+    ) -> List[str]:
+        """Collect make targets to skip with checkbox selection / 收集跳过的构建目标.
+
+        Args:
+            current_nomake_targets: Currently selected targets to skip
+            qt_version: Qt version to determine default targets
+
+        Returns:
+            List of make targets to skip (e.g., "doc", "examples", "tests")
+        """
+        self._print_header("跳过构建目标 / Skip Make Targets")
+
+        print("选择构建时要跳过的目标（使用 -nomake 参数）。")
+        print("使用空格键切换选择，回车键确认。")
+        print()
+        print("Select make targets to skip during build (using -nomake flag).")
+        print("Use SPACE to toggle selection, ENTER to confirm.")
+        print()
+        print("\033[93m注意事项 / Note:\033[0m")
+        print("  • 'doc' - 文档构建，跳过可节省时间")
+        print("  • 'examples' - 示例程序，通常不需要")
+        print("  • 'tests' - 测试套件，开发时可能需要")
+        print()
+
+        # Available make targets
+        available_targets = ["doc", "examples", "tests"]
+
+        # Get version-specific default targets
+        version_default_nomake = get_default_nomake_targets(qt_version)
+
+        # Build choices
+        choices = []
+        target_descriptions = {
+            "doc": "文档构建 / Documentation build",
+            "examples": "示例程序 / Example programs",
+            "tests": "测试套件 / Test suites",
+        }
+
+        for target in available_targets:
+            description = target_descriptions.get(target, target)
+            # Check if target is in version default or current selection
+            is_checked = target in version_default_nomake or target in current_nomake_targets
+
+            choices.append(questionary.Choice(
+                f"{target} - {description}",
+                value=target,
+                checked=is_checked
+            ))
+
+        response = questionary.checkbox(
+            f"选择要跳过的构建目标 / Select make targets to skip:",
+            choices=choices,
+            style=CUSTOM_STYLE,
+        ).ask()
+
+        if response is None:
+            raise KeyboardInterrupt("用户取消安装 / Installation cancelled by user")
+
+        print(f"\033[92m  ✓ 已选择 {len(response)} 个目标跳过 / Selected {len(response)} targets to skip\033[0m")
+        return response
 
     def collect_python_path(
         self,
@@ -616,6 +679,10 @@ class ConfigCollector:
         skip_count = len(config.skip_modules)
         items.append(("跳过模块 / Skip Modules", f"{skip_count} 个模块 / modules selected"))
 
+        # Show nomake targets count
+        nomake_count = len(config.nomake_targets)
+        items.append(("跳过构建目标 / Skip Make Targets", f"{nomake_count} 个目标 / targets selected"))
+
         max_label_len = max(len(label) for label, _ in items)
         for label, value in items:
             print(f"  \033[96m{label:<{max_label_len}}\033[0m  {value}")
@@ -643,7 +710,8 @@ class ConfigCollector:
                 questionary.Choice(f"并行任务 / Parallel Jobs:       {config.parallel_jobs}", value="7"),
                 questionary.Choice(f"Python路径 / Python Path:       {config.python_path or '系统Python / System Python'}", value="8"),
                 questionary.Choice(f"跳过模块 / Skip Modules:        {len(config.skip_modules)} 个模块 / modules", value="9"),
-                questionary.Choice(f"强制OpenGL ES / Force OpenGL ES: {'是 / Yes' if config.force_opengl_es else '否 / No'}", value="10"),
+                questionary.Choice(f"跳过构建目标 / Skip Make Targets: {len(config.nomake_targets)} 个目标 / targets", value="10"),
+                questionary.Choice(f"强制OpenGL ES / Force OpenGL ES: {'是 / Yes' if config.force_opengl_es else '否 / No'}", value="11"),
                 questionary.Choice("─" * 40, value="separator", disabled=True),
                 questionary.Choice("✓ 完成 - 返回确认 / Done - Return to confirmation", value="done"),
                 questionary.Choice("✗ 取消安装 / Cancel installation", value="cancel"),
@@ -705,6 +773,11 @@ class ConfigCollector:
                     qt_source_path=config.qt_source_path
                 )
             elif response == "10":
+                config.nomake_targets = self.collect_nomake_targets(
+                    current_nomake_targets=config.nomake_targets,
+                    qt_version=config.qt_version
+                )
+            elif response == "11":
                 config.force_opengl_es = self.collect_force_opengl_es(
                     default=config.force_opengl_es
                 )
@@ -833,11 +906,13 @@ class ConfigCollector:
 
         # Get default skip modules for selected version
         skip_modules = get_default_skip_modules(qt_version)
+        nomake_targets = get_default_nomake_targets(qt_version)
 
         # Ask if user wants to modify skip modules before creating config
         print()
         print(f"\033[96m跳过模块配置 / Skip Modules:\033[0m")
         print(f"  默认将跳过 {len(skip_modules)} 个模块 / Default: {len(skip_modules)} modules will be skipped")
+        print(f"  默认将跳过 {len(nomake_targets)} 个构建目标 / Default: {len(nomake_targets)} make targets will be skipped")
 
         modify_skip = questionary.confirm(
             "是否要修改跳过的模块列表? / Do you want to modify the skip modules list?",
@@ -855,6 +930,22 @@ class ConfigCollector:
                 qt_source_path=qt_source_path
             )
 
+        # Ask if user wants to modify nomake targets
+        modify_nomake = questionary.confirm(
+            "是否要修改跳过的构建目标列表? / Do you want to modify the make targets list?",
+            default=False,
+            style=CUSTOM_STYLE,
+        ).ask()
+
+        if modify_nomake is None:
+            raise KeyboardInterrupt("用户取消安装 / Installation cancelled by user")
+
+        if modify_nomake:
+            nomake_targets = self.collect_nomake_targets(
+                current_nomake_targets=nomake_targets,
+                qt_version=qt_version
+            )
+
         # Create configuration
         config = InstallConfig(
             qt_source_path=qt_source_path,
@@ -865,6 +956,7 @@ class ConfigCollector:
             build_type=build_type,
             parallel_jobs=parallel_jobs,
             skip_modules=skip_modules,
+            nomake_targets=nomake_targets,
             python_path=python_path,
             version_source=version_source,
             force_opengl_es=force_opengl_es,

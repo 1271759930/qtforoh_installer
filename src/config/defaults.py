@@ -154,6 +154,8 @@ QT512_AVAILABLE_MODULES: List[str] = [
     "qtohosextras",
     # Ignore (should be skipped)
     "qtsystems", "qtfeedback", "qtpim", "qtcanvas3d",
+    # Build/QA tools (not compiled, but listed for skip configuration)
+    "qtqa", "qtrepotools",
 ]
 
 # Modules available for Qt 5.15 HarmonyOS (includes more modules)
@@ -266,8 +268,17 @@ def get_available_modules(version: str, qt_source_path: Optional[Path] = None) -
     return base_modules
 
 
-# Common skip modules for Qt 5.12 HarmonyOS build
-COMMON_SKIP_MODULES: List[str] = [
+# Default make targets to skip (used with -nomake flag)
+# These are NOT Qt modules, but configure targets like "doc", "examples", "tests"
+SKIP_MAKE_TARGETS: List[str] = [
+    "doc",  # Documentation
+    "examples",  # Example programs
+    "tests",  # Test suites
+]
+
+# Qt 5.12 recommended skip modules for HarmonyOS (based on wiki.qt.io/Building_Qt_for_HarmonyOS)
+# Note: "doc" is a make target (-nomake doc), NOT a module (-skip doc)
+QT512_SKIP_MODULES: List[str] = [
     "qt3d", "qtactiveqt", "qtandroidextras", "qtcanvas3d",
     "qtconnectivity", "qtdatavis3d", "qtdoc",
     "qtfeedback", "qtgamepad", "qtgraphicaleffects", "qtlocation",
@@ -277,12 +288,13 @@ COMMON_SKIP_MODULES: List[str] = [
     "qtspeech", "qtsystems", "qttools", "qttranslations",
     "qtvirtualkeyboard", "qtwayland", "qtwebchannel", "qtwebengine",
     "qtwebglplugin", "qtwebsockets", "qtwebview", "qtwinextras",
-    "qtx11extras", "doc",
+    "qtx11extras",
 ]
 
 # Qt 5.15 recommended skip modules for HarmonyOS (based on wiki.qt.io/Building_Qt_for_HarmonyOS)
-QT15_SKIP_MODULES: List[str] = [
-    "doc", "qtactiveqt", "qtandroidextras", "qtcanvas3d", "qtdoc",
+# Note: "doc" is a make target (-nomake doc), NOT a module (-skip doc)
+QT515_SKIP_MODULES: List[str] = [
+    "qtactiveqt", "qtandroidextras", "qtcanvas3d", "qtdoc",
     "qtfeedback", "qtgamepad", "qtlocation", "qtmacextras",
     "qtnetworkauth", "qtpim", "qtpurchasing", "qtqa",
     "qtremoteobjects", "qtrepotools", "qtscript", "qtsystems",
@@ -295,14 +307,16 @@ QT15_SKIP_MODULES: List[str] = [
 # Version-specific configurations
 QT_VERSION_CONFIGS: Dict[str, Dict[str, Any]] = {
     "5.12.12": {
-        "skip_modules": COMMON_SKIP_MODULES,
+        "skip_modules": QT512_SKIP_MODULES,
+        "nomake_targets": SKIP_MAKE_TARGETS,
         "c++std": "c++14",
         "opengl": ["es2", "opengles3"],
         "extra_configure_options": ["-no-dbus"],
         "notes": "Qt 5.12 LTS - uses -ohos-arch parameter, dbus disabled for HarmonyOS"
     },
     "5.15.16": {
-        "skip_modules": QT15_SKIP_MODULES,
+        "skip_modules": QT515_SKIP_MODULES,
+        "nomake_targets": SKIP_MAKE_TARGETS,
         "c++std": "c++14",
         "opengl": ["es2", "opengles3"],
         "extra_configure_options": ["-no-dbus"],
@@ -312,7 +326,8 @@ QT_VERSION_CONFIGS: Dict[str, Dict[str, Any]] = {
 
 # Default configuration for unknown versions
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "skip_modules": COMMON_SKIP_MODULES,
+    "skip_modules": QT515_SKIP_MODULES,
+    "nomake_targets": SKIP_MAKE_TARGETS,
     "c++std": "c++14",
     "opengl": ["es2", "opengles3"],
     "extra_configure_options": ["-no-dbus"],
@@ -361,4 +376,18 @@ def get_default_skip_modules(version: str = "5.15.16") -> List[str]:
         List of module names to skip
     """
     config = get_qt_version_config(version)
-    return config.get("skip_modules", COMMON_SKIP_MODULES).copy()
+    return config.get("skip_modules", QT515_SKIP_MODULES).copy()
+
+
+def get_default_nomake_targets(version: str = "5.15.16") -> List[str]:
+    """
+    Get default make targets to skip for a Qt version.
+
+    Args:
+        version: Qt version string
+
+    Returns:
+        List of make targets to skip (e.g., "doc", "examples", "tests")
+    """
+    config = get_qt_version_config(version)
+    return config.get("nomake_targets", SKIP_MAKE_TARGETS).copy()
