@@ -234,6 +234,16 @@ set "XQMAKESPEC="
 set "QMAKEPATH="
 set "QMAKEFEATURES="
 
+REM Clear MSVC/compiler env vars that could leak wrong Qt headers
+set "INCLUDE="
+set "LIB="
+set "LIBPATH="
+set "QTDIR="
+set "QT_PLUGIN_PATH="
+set "QML2_IMPORT_PATH="
+set "C_INCLUDE_PATH="
+set "CPLUS_INCLUDE_PATH="
+
 echo.
 echo ============================================
 

@@ -25,9 +25,11 @@ class QtBuilder:
         self.logger = logger or logging.getLogger("qtohos-installer")
 
         if workspace:
-            self.build_dir = workspace / "temp" / f"build_{config.architecture}"
+            self.build_dir = workspace / "temp" / f"build_{config.qt_version}_{config.architecture}"
         else:
-            self.build_dir = config.qt_source_path.parent / f"build_{config.architecture}"
+            # Fallback: use project root's temp directory
+            project_root = Path(__file__).parent.parent.parent
+            self.build_dir = project_root / "temp" / f"build_{config.qt_version}_{config.architecture}"
 
         self.workspace = workspace
 
@@ -121,7 +123,8 @@ class QtBuilder:
         }
 
         result = subprocess.run(
-            [os.sys.executable, str(script_path), str(config_path)],
+            [os.sys.executable, str(script_path), str(config_path),
+             "--build-dir", str(self.build_dir)],
             cwd=str(self.build_dir.parent),
             env=clean_env,
         )
@@ -140,7 +143,8 @@ class QtBuilder:
     def _run_unix(self, script_path: Path, config_path: Path) -> bool:
         """Run build script on Unix (macOS/Linux)"""
         result = subprocess.run(
-            [os.sys.executable, str(script_path), str(config_path)],
+            [os.sys.executable, str(script_path), str(config_path),
+             "--build-dir", str(self.build_dir)],
             cwd=str(self.build_dir.parent),
         )
 

@@ -176,7 +176,7 @@ def do_clean(workspace_path: Path = None) -> None:
     console.print("\n[bold cyan]Cleaning build artifacts...[/bold cyan]")
 
     # Clean build directory from workspace/temp
-    build_dir = workspace_path / "temp" / f"build_{cfg.architecture}"
+    build_dir = workspace_path / "temp" / f"build_{cfg.qt_version}_{cfg.architecture}"
     if build_dir.exists():
         console.print(f"Removing: {build_dir}")
         try:

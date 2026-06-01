@@ -621,6 +621,15 @@ def _generate_bat(config: BuildConfig, build_dir: Path) -> Path:
         'set "XQMAKESPEC="',
         'set "QMAKEPATH="',
         'set "QMAKEFEATURES="',
+        'REM Clear MSVC/compiler env vars that could leak wrong Qt headers',
+        'set "INCLUDE="',
+        'set "LIB="',
+        'set "LIBPATH="',
+        'set "QTDIR="',
+        'set "QT_PLUGIN_PATH="',
+        'set "QML2_IMPORT_PATH="',
+        'set "C_INCLUDE_PATH="',
+        'set "CPLUS_INCLUDE_PATH="',
         "",
         f'set "MINGW_BIN={mingw_bin}"',
         'if exist "%MINGW_BIN%" set "PATH=%PATH%;%MINGW_BIN%"',
@@ -771,7 +780,7 @@ def main():
     if args.build_dir:
         build_dir = args.build_dir
     else:
-        build_dir = config.qt_source_path.parent / f"build_{config.architecture}"
+        build_dir = args.config.parent / "temp" / f"build_{config.qt_version}_{config.architecture}"
 
     ok = build(config, build_dir)
 

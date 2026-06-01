@@ -171,8 +171,9 @@ Proceed with installation? [Y/n]: Y
 
 3. **创建构建目录**
    ```
-   <Qt源码>/build_arm64-v8a
+   <项目目录>/temp/build_<Qt版本>_<架构>
    ```
+   例如: `C:\code\qtforoh_installer\temp\build_5.12.12_arm64-v8a`
 
 4. **运行configure**
    ```
